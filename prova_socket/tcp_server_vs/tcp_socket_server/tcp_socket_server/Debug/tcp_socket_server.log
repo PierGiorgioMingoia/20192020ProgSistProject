@@ -1,0 +1,3 @@
+﻿  tcp_socket_server.cpp
+C:\Users\pierg\OneDrive\Desktop\Magistrale Polito\Programmazione di Sistema\Project\prova_socket\tcp_server_vs\tcp_socket_server\tcp_socket_server\tcp_socket_server.cpp(10,1): warning C4326:  il tipo restituito di 'main' dovrebbe essere 'int' invece di 'void'
+  tcp_socket_server.vcxproj -> C:\Users\pierg\OneDrive\Desktop\Magistrale Polito\Programmazione di Sistema\Project\prova_socket\tcp_server_vs\tcp_socket_server\Debug\tcp_socket_server.exe

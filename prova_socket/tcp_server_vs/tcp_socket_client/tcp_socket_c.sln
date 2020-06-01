@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.28917.181
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "tcp_socket_c", "tcp_socket_c\tcp_socket_c.vcxproj", "{88D78EF9-B07E-4401-8BBF-10E17FD3A502}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{88D78EF9-B07E-4401-8BBF-10E17FD3A502}.Debug|x64.ActiveCfg = Debug|x64
+		{88D78EF9-B07E-4401-8BBF-10E17FD3A502}.Debug|x64.Build.0 = Debug|x64
+		{88D78EF9-B07E-4401-8BBF-10E17FD3A502}.Debug|x86.ActiveCfg = Debug|Win32
+		{88D78EF9-B07E-4401-8BBF-10E17FD3A502}.Debug|x86.Build.0 = Debug|Win32
+		{88D78EF9-B07E-4401-8BBF-10E17FD3A502}.Release|x64.ActiveCfg = Release|x64
+		{88D78EF9-B07E-4401-8BBF-10E17FD3A502}.Release|x64.Build.0 = Release|x64
+		{88D78EF9-B07E-4401-8BBF-10E17FD3A502}.Release|x86.ActiveCfg = Release|Win32
+		{88D78EF9-B07E-4401-8BBF-10E17FD3A502}.Release|x86.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {EC177FFC-811C-4ABA-AACF-924E23EB2ED8}
+	EndGlobalSection
+EndGlobal
