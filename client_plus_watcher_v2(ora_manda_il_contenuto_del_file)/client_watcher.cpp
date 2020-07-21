@@ -89,6 +89,7 @@ int main(int argc, char* argv[]) {
                 while (getline(iFile, msg))
                     send(msg, s);
             }
+			iFile.close();
             
 			break;
 		case FileStatus::modified:
@@ -100,6 +101,8 @@ int main(int argc, char* argv[]) {
                 while (getline(iFile, msg))
                     send(msg, s);
             }
+			iFile.close();
+			
 			break;
 		case FileStatus::erased:
 			std::cout << "File erased: " << path_to_watch << '\n';
