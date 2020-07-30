@@ -17,8 +17,9 @@ using boost::asio::ip::tcp;
 //-------------------------------definizione funzioni---------------------------------------------
 
 void receive(tcp::socket* s);                                   
-void reconnect(tcp::socket* s, tcp::resolver::results_type* endpoints);
+void reconnect(tcp::socket* s, tcp::resolver::results_type* endpoints, std::string* user, std::string* pw);
 void send_file(std::string path, tcp::socket& s);
+int login(tcp::socket& s, std::string user, std::string pw);
 
 //-------------------------------variabili globali------------------------------------------------
 enum { max_length = 1024 };                                                     //dimensione massima dei messaggi mandabili e ricevibili
@@ -38,18 +39,18 @@ std::mutex buffer_access;                                                       
 void send(std::string msg,tcp::socket &s)                                           // serve a mandare un solo messaggio sul socket s
 {
     using namespace std; // For strlen.
-    char request[max_length];
-    size_t request_length;
+    //char request[max_length];
+    //size_t request_length;
 
     try {
-        strcpy_s(request, msg.c_str());                                             // trasformo il messaggio in vettore di char
-        request_length = strlen(request);                                           // leggo la lunghezza
+        //strcpy_s(request, msg.c_str());                                             // trasformo il messaggio in vettore di char
+        //request_length = strlen(request);                                           // leggo la lunghezza
 
         cout_access.lock();                                                         //stampa per debug
-        std::cout << "sent message: "<< request;                                    //stampa per debug
+        std::cout << "sent message: "<< msg;                                    //stampa per debug
         cout_access.unlock();                                                       //stampa per debug
 
-        boost::asio::write(s, boost::asio::buffer(request, request_length));        // scrittura sul socket, è qui che può partire l'eccezione da catturare
+        boost::asio::write(s, boost::asio::buffer(msg.c_str(), msg.size()));        // scrittura sul socket, è qui che può partire l'eccezione da catturare
     }
     catch (std::exception& e)
     {
@@ -63,7 +64,7 @@ void send(std::string msg,tcp::socket &s)                                       
 
 void receive(tcp::socket* s)                                                        // funzione thread che controlla continuamente l'arrivo di nuovi messaggi
 {
-    using namespace std;                                                            // For strlen. NON NE HO IDEA era nella versione base da cui abbiamo iniziato ma non da fastidio quindi...
+
     char reply[max_length];                                                         //    
     size_t reply_length;                                                            //
                                                                                     //
@@ -79,22 +80,20 @@ void receive(tcp::socket* s)                                                    
             //case multiple lines are read as a single message                      // è possibile che più comandi vengano letti in una sola lettura, 
             std::string reply_str(reply,reply_length),token;                        // in quel caso spezzo la stringa ottenuta e leggo i singoli comandi
             std::stringstream ss(reply_str);                                        //
-            std::vector<std::string> replies;                                       //
             while (std::getline(ss, token, '\n'))                                   //
             {                                                                       //
                 if (token[0] == 'F')                                                // se il comando è una risposta a un comando F(che sta per Fine, cioè l'ultimo di un determinato file)
                 {                                                                   // allora lo considero un acknowledge per quel comando
                     std::unique_lock<std::mutex> lk(buffer_access);                 //
-                    //msg_buffer.find(std::string(reply + 3*sizeof(char)));         // stesso significato della riga successiva
                     msg_buffer.erase(token.substr(3));                              // elimino il comando dal buffer dato che ho ricevuto l'ack
                     if (msg_buffer.size() ==4 ) buffer_var.notify_all();            // se prima il buffer era pieno(e di conseguenza ora non lo è più) noticfico che posso riprendere a mandare messaggi
                     lk.unlock();                                                    //
                                                                                     //
-                    cout_access.lock();                                             // stampa er debug
-                    std::cout << "Reply is: ";                                      // stampa er debug
-                    std::cout << token;                                             // stampa er debug
-                    std::cout << "\n";                                              // stampa er debug
-                    cout_access.unlock();                                           // stampa er debug
+                    cout_access.lock();                                             // stampa per debug
+                    std::cout << "Reply is: ";                                      // stampa per debug
+                    std::cout << token;                                             // stampa per debug
+                    std::cout << "\n";                                              // stampa per debug
+                    cout_access.unlock();                                           // stampa per debug
                 }                                                                   //
             }                                                                       //
         }                                                                           //
@@ -111,8 +110,10 @@ void receive(tcp::socket* s)                                                    
                                                                                     //
 }                                                                                   //
                                                                                     //
+      
+                                                                                    
                                                                                     //
-void reconnect(tcp::socket* s, tcp::resolver::results_type* endpoints)              // thread sempre attivo che però è in sleep quando tutto va bene
+void reconnect(tcp::socket* s, tcp::resolver::results_type* endpoints, std::string *user, std::string *pw)
 {                                                                                   //
     std::string msg;                                                                //
     while (1)                                                                       //
@@ -125,6 +126,10 @@ void reconnect(tcp::socket* s, tcp::resolver::results_type* endpoints)          
         {                                                                           //
             boost::asio::connect(*s, *endpoints);                                   // prova a connettersi, tutto ciò che c'è dopo viene saltato in caso di fallimento perchè si salta al catch dell'errore
             DISCONNECTED = 0;                                                       // se la connessione è riuscita reiposto il flag
+            login(*s, *user, *pw);
+
+            //check se il login è andato bene
+            //...
                                                                                     //
             // re-send non acknoledged commands                                     // prima di ritornare alla normalità devo svuotare il buffer, dato che contiene i comandi elaborati (in realtà un comando 
                                                                                     // viene inserito nel buffer subito prima dell'invio, quindi è possibile che il comando sia nel buffer ma non mandato 
@@ -161,19 +166,62 @@ void send_file(std::string path, tcp::socket &s)                                
         {                                                                           //
             send(std::string("L: ").append(msg).append("\n"), s);                   //
         }                                                                           //
-                              //
-    }   
+                                                                                    //
+    }  
+    send(std::string("U: ").append(std::to_string(boost::filesystem::last_write_time(path))).append("\n"), s);
     send(std::string("F: ").append(path).append("\n"), s);                          // quindi mando solo il comando F
 }                                                                                   //
+     
+
+int login(tcp::socket& s, std::string user, std::string pw)
+{
+    char buffer[max_length];
+    send("I: " + user + "\n", s);
+    size_t reply_length = s.read_some(boost::asio::buffer(buffer, max_length));
+    std::cout << std::string(buffer,reply_length) << std::endl;
+    if (buffer[0] == 'N')
+    {
+        send("P: " + pw + "\n", s);
+        reply_length = s.read_some(boost::asio::buffer(buffer, max_length));
+        if (buffer[0] == 'I')
+            return 2;   //registrazione avvenuta con successo, nuovo utente
+    }
+    else if (buffer[0] == 'R')
+    {
+        send("P: " + pw + "\n", s);
+        reply_length = s.read_some(boost::asio::buffer(buffer, max_length));
+        if (buffer[0] == 'I')
+            return 1;   //identificazione avvenuta con successo, utente già esistente
+        else if (buffer[0] == 'X')
+            return -1;  //password sbagliata, accesso negato
+    }
+    else
+    {
+        return 0;   //errore di comunicazione
+    }
+}
+
+std::string syncronize(tcp::socket& s)
+{
+    std::string data("");
+    char buffer[max_length];
+    send("S: \n", s);
+    
+    for (size_t reply_length = max_length;
+        reply_length == max_length;
+        reply_length = s.read_some(boost::asio::buffer(buffer, max_length)), data.append(std::string(buffer, reply_length)));
+    return data;
+}
+
                                                                                     //
                                                                                     //
 int main(int argc, char* argv[]) {                                                  // main
                                                                                     //
     try                                                                             //
     {                                                                               //
-        if (argc != 3)                                                              //controllo sugli argomenti
+        if (argc != 5)                                                              //controllo sugli argomenti
         {                                                                           //
-            std::cerr << "Usage: blocking_tcp_echo_client <host> <port>\n";         //
+            std::cerr << "Usage: blocking_tcp_echo_client <host> <port> <userID> <password>\n";         //
             return 1;                                                               //
         }                                                                           //
                                                                                     //
@@ -185,17 +233,27 @@ int main(int argc, char* argv[]) {                                              
                                                                                     //
         tcp::socket s(io_context);                                                  //
         boost::asio::connect(s, endpoints);                                         // prima connessione, se questa non va per ora il programma quitta, si può decidere di mandare il problema alla reconnect
-                                                                                    //
-
+        
+        // controllo se il server manda hello
+        //char reply[max_length];
+        //s.read_some(boost::asio::buffer(reply, max_length));                      //
+        //std::cout <<"server said :" << reply;
 
         std::cout << "CLIENT ONLINE" << std::endl;
 
-        std::thread listener (receive , &s);
-        std::thread reconnecter(reconnect, &s, &endpoints);
+        std::string user(argv[3]), pw(argv[4]);
+        int log =login(s, user,pw);
+        std::string data;
+        if (log ==1)                //utente già esistente
+            data = syncronize(s);
+        if (log == 2)               //utente nuovo
+            data = "|";
 
+        std::thread listener (receive , &s);
+        std::thread reconnecter(reconnect, &s, &endpoints, &user, &pw);
 
 	    // Create a FileWatcher instance that will check the current folder for changes every 5 seconds
-	    FileWatcher fw{ "./", std::chrono::milliseconds(5000),s };
+	    FileWatcher fw{ "./", std::chrono::milliseconds(5000),s,data };
 	    // Start monitoring a folder for changes and (in case of changes)
 	    // run a user provided lambda function
 	    fw.start([](std::string path_to_watch, FileStatus status, tcp::socket& s) -> void {
@@ -203,6 +261,9 @@ int main(int argc, char* argv[]) {                                              
 	    	if (!std::filesystem::is_regular_file(std::filesystem::path(path_to_watch)) && status != FileStatus::erased) {
 	    		return;
 	    	}
+            // ATTENZIONE dato che l'eseguibile del client è nella cartella da controllare, questo cercherà di mandare una propria copia al server.
+            // bisogna mettere una condizione affinchà ciò non succeda
+            // tutto ciò succede solo quando si usa l'eseguibile,non durante il debug
 
             std::string msg;
 
@@ -222,7 +283,7 @@ int main(int argc, char* argv[]) {                                              
                 msg.append("C: " + path_to_watch + '\n');                           // comando C
                 lk.lock();                                                          //
                 msg_buffer.insert_or_assign(path_to_watch, std::string("C"));       // da notare che se modifico 2 volte lo stesso file mantengo solo un comando nel buffer, 
-                                                                                    //  tanto in caso ci sia bisogno di rimandarlo posso mandare semplicemente l'ultima versione
+                                                                                    // tanto in caso ci sia bisogno di rimandarlo posso mandare semplicemente l'ultima versione
                                                                                     // es prima C poi M -> mando solo M e il server se vede un nome di un file che non ha lo crea dal nulla 
                                                                                     // es prima C poi E -> dico al server di eliminare un file che non ha, il server può ignorare il messaggio
                                                                                     // es prima M poi E -> perchè rimandare delle modifiche di un file che poi dovrò cancellare?
