@@ -35,6 +35,26 @@ std::mutex cout_access;                                                         
 std::mutex buffer_access;                                                       // mutex per l'accesso al buffer dei comandi
 
 //-----------------------------------funzioni------------------------------------------------------
+void send(char* msg, int size, tcp::socket& s)
+{
+    using namespace std;
+    try {
+        cout_access.lock();                                                         //stampa per debug
+        std::cout << "sending bytes..." << std::endl;                               //stampa per debug
+        cout_access.unlock();                                                       //stampa per debug
+
+        boost::asio::write(s, boost::asio::buffer(msg, size));        // scrittura sul socket, è qui che può partire l'eccezione da catturare
+    }
+    catch (std::exception& e)
+    {
+        std::cerr << "Exception in send: " << e.what() << "\n";                     // solo per debug
+        std::unique_lock<std::mutex> lk_dc(flag_access);                            // dico che client e server non sono più connessi
+        DISCONNECTED = 1;                                                           // quindi devo passare alla modalità "riconnessione"
+        lk_dc.unlock();                                                             //
+        connect_var.notify_all();                                                   // qui sveglio il thread che se ne occupa
+    }
+}
+
 
 void send(std::string msg,tcp::socket &s)                                           // serve a mandare un solo messaggio sul socket s
 {
@@ -115,48 +135,59 @@ void receive(tcp::socket* s)                                                    
                                                                                     //
 void reconnect(tcp::socket* s, tcp::resolver::results_type* endpoints, std::string *user, std::string *pw)
 {                                                                                   //
-    std::string msg;                                                                //
-    while (1)                                                                       //
-    {                                                                               //
-        std::unique_lock<std::mutex> lk(flag_access);                               //
-        while (!DISCONNECTED) connect_var.wait(lk);                                 // attende di essere svegliato quando qualcuno si accorge della disconnessine
-        std::chrono::milliseconds delay(50);                                        // ogni 50 ms riprova a connettersi
-        std::this_thread::sleep_for(delay);                                         //
-        try                                                                         //
-        {                                                                           //
-            boost::asio::connect(*s, *endpoints);                                   // prova a connettersi, tutto ciò che c'è dopo viene saltato in caso di fallimento perchè si salta al catch dell'errore
-            DISCONNECTED = 0;                                                       // se la connessione è riuscita reiposto il flag
-            login(*s, *user, *pw);
+    try
+    {
+        std::string msg;                                                                //
+        while (1)                                                                       //
+        {                                                                               //
+            std::unique_lock<std::mutex> lk(flag_access);                               //
+            while (!DISCONNECTED) connect_var.wait(lk);                                 // attende di essere svegliato quando qualcuno si accorge della disconnessione
+            try                                                                         //
+            {                                                                           //
+                boost::asio::connect(*s, *endpoints);                                   // prova a connettersi, tutto ciò che c'è dopo viene saltato in caso di fallimento perchè si salta al catch dell'errore
+                DISCONNECTED = 0;                                                       // se la connessione è riuscita reiposto il flag
+                login(*s, *user, *pw);
 
-            //check se il login è andato bene
-            //...
-                                                                                    //
-            // re-send non acknoledged commands                                     // prima di ritornare alla normalità devo svuotare il buffer, dato che contiene i comandi elaborati (in realtà un comando 
-                                                                                    // viene inserito nel buffer subito prima dell'invio, quindi è possibile che il comando sia nel buffer ma non mandato 
-                                                                                    // se si verifica un errore in fase di send) e che il watcher non ci tornerà più quando riprenderà l'attività normale
-            std::unique_lock<std::mutex> lk_buf(buffer_access);                     //
-            for (std::map<std::string, std::string>::iterator it = msg_buffer.begin();it!=msg_buffer.end();it++ )
-            {                                                                       // per tutti i comandi nel buffer
-                msg.append(it->second + ": " + it->first + '\n');                   
-                send(msg, *s);                                                      // li rimando
-                send_file(it->first, *s);                                           // rimando il contenuto del file. da notare che se faccio il send di un file eliminato mando solo il comando F: (spiegazione nel corpo della funzione)
-            }                                                                       //
-            lk_buf.unlock();                                                        //
-            lk.unlock();                                                            // terminata la funzione di riconnessione
-            connect_var.notify_all();                                               // notifico gli altri thread che possono ripartire
-            cout_access.lock();                                                     // stampa di debug
-            std::cout << "CLIENT ONLINE" << std::endl;                              // stampa di debug
-            cout_access.unlock();                                                   // stampa di debug
-        }                                                                           //
-        catch (std::exception& e)                                                   //
-        {                                                                           //
-            std::cerr << "Exception in reconnect: " << e.what() << "\n";            // finchè non riesce a riconnettersi continua a mostrare il messaggio di errore
-        }                                                                           //
-                                                                                    //
-    }                                                                               //
+                //check se il login è andato bene
+                //...
+                                                                                        //
+                // re-send non acknoledged commands                                     // prima di ritornare alla normalità devo svuotare il buffer, dato che contiene i comandi elaborati (in realtà un comando 
+                                                                                        // viene inserito nel buffer subito prima dell'invio, quindi è possibile che il comando sia nel buffer ma non mandato 
+                                                                                        // se si verifica un errore in fase di send) e che il watcher non ci tornerà più quando riprenderà l'attività normale
+                std::unique_lock<std::mutex> lk_buf(buffer_access);                     //
+                for (std::map<std::string, std::string>::iterator it = msg_buffer.begin();it!=msg_buffer.end();it++ )
+                {                                                                       // per tutti i comandi nel buffer
+                    msg.append(it->second + ": " + it->first + '\n');                   
+                    send(msg, *s);                                                      // li rimando
+                    send_file("./" + *user + it->first.substr(1), *s);                  // rimando il contenuto del file. da notare che se faccio il send di un file eliminato non mando nulla
+                    if (it->second.compare("E") != 0)
+                        send(std::string("U: ").append(std::to_string(boost::filesystem::last_write_time("./" + *user + it->first.substr(1)))).append("\n"), *s);
+                    send(std::string("F: ").append(it->first).append("\n"), *s);
+                }                                                                       //
+                lk_buf.unlock();                                                        //
+                lk.unlock();                                                            // terminata la funzione di riconnessione
+                connect_var.notify_all();                                               // notifico gli altri thread che possono ripartire
+                cout_access.lock();                                                     // stampa di debug
+                std::cout << "CLIENT ONLINE" << std::endl;                              // stampa di debug
+                cout_access.unlock();                                                   // stampa di debug
+            }                                                                           //
+            catch (std::exception& e)                                                   //
+            {                                                                           //
+                std::cerr << "Exception in reconnect: " << e.what() << "\n";            // finchè non riesce a riconnettersi continua a mostrare il messaggio di errore
+            }                                                                           //
+                                                                                        //
+        }                                                                               //
+
+    }
+    catch (std::exception& e)         
+    {
+        std::cerr << "Exception in reconnect: " << e.what() << "\n";            
+    }
+
 }                                                                                   //
-                                                                                    //
-void send_file(std::string path, tcp::socket &s)                                    //
+         
+             //send file ascii                                                                       ///
+/*void send_file(std::string path, tcp::socket &s)                                    //
 {                                                                                   //
     std::ifstream iFile(path);                                                      // ifile è un file stream in imput
     std::string msg;                                                                //
@@ -168,49 +199,99 @@ void send_file(std::string path, tcp::socket &s)                                
         }                                                                           //
                                                                                     //
     }  
-    send(std::string("U: ").append(std::to_string(boost::filesystem::last_write_time(path))).append("\n"), s);
-    send(std::string("F: ").append(path).append("\n"), s);                          // quindi mando solo il comando F
-}                                                                                   //
+    
+}   */
+
+        //send file binary
+void send_file(std::string path, tcp::socket& s)                                    //
+{             
+    try
+    {
+        std::ifstream iFile(path, std::ifstream::binary);                                                      // ifile è un file stream in imput
+        char buff[1008];
+
+        std::string msg;                                                                //
+        if (iFile.is_open())                                                            // se il file non esiste ifile non lo crea perchè di default può solo ricevere (almeno mi sembra)
+        {                                                                               //
+            while (iFile)                                                               // mando riga per riga, può essere ottimizzato
+            {                                                                           //
+                iFile.read(buff + 8, sizeof(buff) - 8);
+                int n = iFile.gcount();
+                buff[0] = 'L';
+                buff[1] = ':';
+                buff[2] = ' ';
+                buff[3] = n / 1000 + 48;
+                buff[4] = n % 1000 / 100 + 48;
+                buff[5] = n % 100 / 10 + 48;
+                buff[6] = n % 10 + 48;
+                buff[7] = '|';
+
+                send(buff, iFile.gcount() + 8, s);                   //
+            }                                                                           //
+                                                                                        //
+        }
+        iFile.close();
+    }
+    catch (std::exception& e)                                                   
+    {                                                                           
+        std::cerr << "Exception in reconnect: " << e.what() << "\n";           
+    }
+}
      
 
 int login(tcp::socket& s, std::string user, std::string pw)
 {
-    char buffer[max_length];
-    send("I: " + user + "\n", s);
-    size_t reply_length = s.read_some(boost::asio::buffer(buffer, max_length));
-    std::cout << std::string(buffer,reply_length) << std::endl;
-    if (buffer[0] == 'N')
+    try
     {
-        send("P: " + pw + "\n", s);
-        reply_length = s.read_some(boost::asio::buffer(buffer, max_length));
-        if (buffer[0] == 'I')
-            return 2;   //registrazione avvenuta con successo, nuovo utente
+        char buffer[max_length];
+        send("I: " + user + "\n", s);
+        size_t reply_length = s.read_some(boost::asio::buffer(buffer, max_length));
+        std::cout << std::string(buffer, reply_length) << std::endl;
+        if (buffer[0] == 'N')
+        {
+            send("P: " + pw + "\n", s);
+            reply_length = s.read_some(boost::asio::buffer(buffer, max_length));
+            if (buffer[0] == 'I')
+                return 2;   //registrazione avvenuta con successo, nuovo utente
+        }
+        else if (buffer[0] == 'R')
+        {
+            send("P: " + pw + "\n", s);
+            reply_length = s.read_some(boost::asio::buffer(buffer, max_length));
+            if (buffer[0] == 'I')
+                return 1;   //identificazione avvenuta con successo, utente già esistente
+            else if (buffer[0] == 'X')
+                return -1;  //password sbagliata, accesso negato
+        }
+        else
+        {
+            return 0;   //errore di comunicazione
+        }
     }
-    else if (buffer[0] == 'R')
-    {
-        send("P: " + pw + "\n", s);
-        reply_length = s.read_some(boost::asio::buffer(buffer, max_length));
-        if (buffer[0] == 'I')
-            return 1;   //identificazione avvenuta con successo, utente già esistente
-        else if (buffer[0] == 'X')
-            return -1;  //password sbagliata, accesso negato
-    }
-    else
-    {
-        return 0;   //errore di comunicazione
+    catch (std::exception& e)                                                   //
+    {                                                                           //
+        std::cerr << "Exception in reconnect: " << e.what() << "\n";           
     }
 }
 
 std::string syncronize(tcp::socket& s)
 {
-    std::string data("");
-    char buffer[max_length];
-    send("S: \n", s);
-    
-    for (size_t reply_length = max_length;
-        reply_length == max_length;
-        reply_length = s.read_some(boost::asio::buffer(buffer, max_length)), data.append(std::string(buffer, reply_length)));
-    return data;
+    try
+    {
+
+        std::string data("");
+        char buffer[max_length];
+        send("S: \n", s);
+
+        for (size_t reply_length = max_length;
+            reply_length == max_length;
+            reply_length = s.read_some(boost::asio::buffer(buffer, max_length)), data.append(std::string(buffer, reply_length)));
+        return data;
+    }
+    catch (std::exception& e)                                                   //
+    {                                                                           //
+        std::cerr << "Exception in reconnect: " << e.what() << "\n";            
+    }
 }
 
                                                                                     //
@@ -253,10 +334,10 @@ int main(int argc, char* argv[]) {                                              
         std::thread reconnecter(reconnect, &s, &endpoints, &user, &pw);
 
 	    // Create a FileWatcher instance that will check the current folder for changes every 5 seconds
-	    FileWatcher fw{ "./", std::chrono::milliseconds(5000),s,data };
+        FileWatcher fw{ "./" + user + "/", std::chrono::milliseconds(5000),s,data };
 	    // Start monitoring a folder for changes and (in case of changes)
 	    // run a user provided lambda function
-	    fw.start([](std::string path_to_watch, FileStatus status, tcp::socket& s) -> void {
+	    fw.start([](std::string path_to_watch,std::string root_folder, FileStatus status, tcp::socket& s) -> void {
 	    	// Process only regular files, all other file types are ignored
 	    	if (!std::filesystem::is_regular_file(std::filesystem::path(path_to_watch)) && status != FileStatus::erased) {
 	    		return;
@@ -266,7 +347,7 @@ int main(int argc, char* argv[]) {                                              
             // tutto ciò succede solo quando si usa l'eseguibile,non durante il debug
 
             std::string msg;
-
+            std::string relative_path = "./" + path_to_watch.substr(root_folder.size());
             std::unique_lock<std::mutex> lk_dc(flag_access);                        //
             while (DISCONNECTED) connect_var.wait(lk_dc);                           // controlla che il client sia connesso , altrimenti aspetta
             lk_dc.unlock();                                                         //
@@ -280,9 +361,9 @@ int main(int argc, char* argv[]) {                                              
 	    	case FileStatus::created:                                               //
                                                                                     //
 	    		//std::cout << "C: " << path_to_watch << '\n';                      //
-                msg.append("C: " + path_to_watch + '\n');                           // comando C
+                msg.append("C: " + relative_path + '\n');                           // comando C
                 lk.lock();                                                          //
-                msg_buffer.insert_or_assign(path_to_watch, std::string("C"));       // da notare che se modifico 2 volte lo stesso file mantengo solo un comando nel buffer, 
+                msg_buffer.insert_or_assign(relative_path, std::string("C"));       // da notare che se modifico 2 volte lo stesso file mantengo solo un comando nel buffer, 
                                                                                     // tanto in caso ci sia bisogno di rimandarlo posso mandare semplicemente l'ultima versione
                                                                                     // es prima C poi M -> mando solo M e il server se vede un nome di un file che non ha lo crea dal nulla 
                                                                                     // es prima C poi E -> dico al server di eliminare un file che non ha, il server può ignorare il messaggio
@@ -291,28 +372,32 @@ int main(int argc, char* argv[]) {                                              
                 lk.unlock();                                                        //
                 send(msg, s);                                                       //
                 send_file(path_to_watch, s);                                        //
+                send(std::string("U: ").append(std::to_string(boost::filesystem::last_write_time(path_to_watch))).append("\n"), s);
+                send(std::string("F: ").append(relative_path).append("\n"), s);     // 
 	    		break;                                                              //
                                                                                     //
                                                                                     //
 	    	case FileStatus::modified:                                              //
 	    		//std::cout << "M: " << path_to_watch << '\n';                      //
-                msg.append("M: " + path_to_watch + '\n');                           // comando M
+                msg.append("M: " + relative_path + '\n');                           // comando M
                 lk.lock();                                                          //
-                msg_buffer.insert_or_assign(path_to_watch, std::string("M"));       //
+                msg_buffer.insert_or_assign(relative_path, std::string("M"));       //
                 lk.unlock();                                                        //
                 send(msg, s);                                                       //
                 send_file(path_to_watch, s);                                        //
+                send(std::string("U: ").append(std::to_string(boost::filesystem::last_write_time(path_to_watch))).append("\n"), s);
+                send(std::string("F: ").append(relative_path).append("\n"), s);     // 
 	    		break;                                                              //
                                                                                     //
                                                                                     //
 	    	case FileStatus::erased:                                                //
 	    		//std::cout << "E: " << path_to_watch << '\n';                      //
-                msg.append("E: " + path_to_watch + '\n');                           // comando E
+                msg.append("E: " + relative_path + '\n');                           // comando E
                 lk.lock();                                                          //
-                msg_buffer.insert_or_assign(path_to_watch, std::string("E"));       //
+                msg_buffer.insert_or_assign(relative_path, std::string("E"));       //
                 lk.unlock();                                                        //
                 send(msg, s);                                                       //
-                send(std::string("F: ").append(path_to_watch).append("\n"), s);     //
+                send(std::string("F: ").append(relative_path).append("\n"), s);     //
                                                                                     //
 	    		break;                                                              //
 	    	default:                                                                //

@@ -74,7 +74,7 @@ public:
             else
             {
                 std::cerr << "login failed";
-                delete this;
+                return;
             }
 
             //ricevo la pw
@@ -90,7 +90,7 @@ public:
             else
             {
                 std::cerr << "login failed";
-                delete this;
+                return;
             }
 
 
@@ -115,97 +115,179 @@ public:
                     delete this;
                 }
             }*/
-
-            std::string reply_str;
-            std::string token;                                                   
+            std::string reply_str="";                                                   
             std::string file_name;
             std::filesystem::path p;
+            bool cont = true;
 
             while (1)
             {
                 //comportamento a regime R -> azione (-> W) -> R -> azione (-> W) -> R ....
-                reply_str = "";
                 do
                 {
                     reply_length = socket_.read_some(boost::asio::buffer(data_, max_length));
                     reply_str.append(data_, reply_length);
 
-                } while (reply_length == max_length && data_[max_length - 1] != '\n');  //per evitare di spezzare messaggi
-
+                } while (reply_length == max_length && reply_str.length() < 2048);//&& data_[max_length - 1] != '\n');  //per evitare di spezzare messaggi
+                cont = true;
 
                 //case multiple lines are read as a single message                      // è possibile che più comandi vengano letti in una sola lettura, 
-                std::stringstream ss(reply_str);                // ho provato a inizializzarlo fuori dal while e poi assegnargli un valore in questo punto ma poi dava problemi alla getline seguente
+                //std::stringstream ss(reply_str);                // ho provato a inizializzarlo fuori dal while e poi assegnargli un valore in questo punto ma poi dava problemi alla getline seguente
                 //token.resize(10000);
-                while (std::getline(ss, token, '\n'))                                   // per ogni comando ottenuto
+                while (reply_str.length() > 0 && cont)                                   // per ogni comando ottenuto
                 {
-                    switch (token[0])
+                    switch (reply_str[0])
                     {
                     case 'C':   //crea
-                        file_name = "./" + user_ + "\\" + token.substr(5);
+                    {
+                        int pos = reply_str.find('\n');
+                        if (pos == std::string::npos)
+                        {
+                            cont = false;
+                            break;
+                        }
+                        file_name = "./" + user_ + "\\" + reply_str.substr(5,pos-5);
                         p = std::filesystem::path(file_name).remove_filename();
                         std::filesystem::create_directories(p);
-                        Ofile.open(file_name);
+                        Ofile.open(file_name, std::ofstream::binary);
                         if (Ofile.is_open())                        //tutte queste stampe poi vanno eliminate
-                            std::cout << "file is open\n";          //tutte queste stampe poi vanno eliminate
+                            std::cout << "file is open C\n";          //tutte queste stampe poi vanno eliminate
                         else                                        //tutte queste stampe poi vanno eliminate
                             std::cout << "file is not open\n";      //tutte queste stampe poi vanno eliminate
+                        if (pos < reply_str.length() - 1)
+                            reply_str = std::string(reply_str, pos + 1);
+                        else
+                            reply_str = "";
+                    }
                         break;
                     case 'M':   //modifica
+                    {
+                        int pos = reply_str.find('\n');
+                        if (pos == std::string::npos)
+                        {
+                            cont = false;
+                            break;
+                        }
+                        file_name = "./" + user_ + "\\" + reply_str.substr(5, pos - 5);
                         // si può forse fare una copia di backup nel caso la modifica non vada a buon fine, una sorta di rollback
                         //...
-                        file_name = "./" + user_ + "\\" + token.substr(5);
-                        Ofile.open(file_name);                          //C ed M sono in pratica la stessa cosa
+                        Ofile.open(file_name, std::ofstream::binary);                          //C ed M sono in pratica la stessa cosa
                         if (Ofile.is_open())
-                            std::cout << "file is open\n";
+                            std::cout << "file is open M\n";
                         else
                             std::cout << "file is not open\n";
+                        if (pos < reply_str.length() - 1)
+                            reply_str = std::string(reply_str, pos + 1);
+                        else
+                            reply_str = "";
+                    }
                         break;
                     case 'E':   //elimina
-                        file_name = "./" + user_ + "\\" + token.substr(5);
+                    {
+                        int pos = reply_str.find('\n');
+                        if (pos == std::string::npos)
+                        {
+                            cont = false;
+                            break;
+                        }
+                        file_name = "./" + user_ + "\\" + reply_str.substr(5, pos - 5);
                         std::filesystem::remove_all(file_name);
+                        if (pos < reply_str.length() - 1)
+                            reply_str = std::string(reply_str, pos + 1);
+                        else
+                            reply_str = ""; 
+                    }
                         break;
                     case 'L':   //linea
+                    {
+                        if (reply_str.length() < 8)
+                        {
+                            cont = false;
+                            break;
+                        }
+                        int n = std::stoi(reply_str.substr(3, 4));
+                        if (reply_str.length() < n + 8)
+                        {
+                            cont = false;
+                            break;
+                        }
                         if (Ofile.is_open())
-                            std::cout << "file is open\n";
+                            std::cout << "file is open L\n";
                         else
                             std::cout << "file is not open\n";
-                        Ofile.write(token.substr(3).c_str(), token.size() - 3);
-                        Ofile.put('\n');
+                        if (n != 0)
+                            Ofile.write(reply_str.c_str() + 8, n);
+                        if (n == reply_str.length() - 8)
+                            reply_str = "";
+                        else
+                            reply_str = std::string(reply_str, n + 8);
+                    }
                         break;
                     case 'S': // ricevo la richiesta di sincronizzazione
-                        {FileWatcher fw("./" + user_ + "/", std::chrono::milliseconds(5000), socket_);
+                    {
+                        int pos = reply_str.find('\n');
+                        if (pos == std::string::npos)
+                        {
+                            cont = false;
+                            break;
+                        }
+                        FileWatcher fw("./" + user_ + "/", std::chrono::milliseconds(5000), socket_);
                         std::string sync_data = fw.get_folder_data();
                         if (sync_data.size() == 0)  //se la cartella è vuota devo comunque mandare un carattere altrimenti blocco tutto
                             sync_data.append("|");
                         //faccio cose
                         //...
                         //
-                        boost::asio::write(socket_, boost::asio::buffer(sync_data.c_str(), sync_data.size())); 
-                        }
+                        boost::asio::write(socket_, boost::asio::buffer(sync_data.c_str(), sync_data.size()));
+
+                        if (pos < reply_str.length() - 1)
+                            reply_str = std::string(reply_str, pos + 1);
+                        else
+                            reply_str = "";
+                    }
                         break;
                     case 'U':   //ultima modifica
+                    {
+                        int pos = reply_str.find('\n');
+                        if (pos == std::string::npos)
+                        {
+                            cont = false;
+                            break;
+                        }
                         Ofile.close();
-                        boost::filesystem::last_write_time(file_name, std::stoi(token.substr(3)));
+                        boost::filesystem::last_write_time(file_name, std::stoi(reply_str.substr(3,pos-3)));
+                        if (pos < reply_str.length() - 1)
+                            reply_str = std::string(reply_str, pos + 1);
+                        else
+                            reply_str = "";
+                    }
                         break;
                     case 'F':   //fine comando
+                    {
                         //per ora metto il close qui
                         //Ofile.close();
                         // controllo qualunque cosa mi possa servire
                         //...
                         //mando l'ack
-                        boost::asio::write(socket_, boost::asio::buffer(token.c_str(), token.size()));
+                        int pos = reply_str.find('\n');
+                        if (pos == std::string::npos)
+                        {
+                            cont = false;
+                            break;
+                        }
+                        boost::asio::write(socket_, boost::asio::buffer(reply_str.c_str(), pos));
+                        if (pos < reply_str.length() - 1)
+                            reply_str = std::string(reply_str, pos + 1);
+                        else
+                            reply_str = "";
+                        std::cout << "F" << file_name << std::endl;
+                    }
                         break;
                     default:
                         break;
                     }
                 }
             }
-
-            std::chrono::seconds delay(15);
-            std::this_thread::sleep_for(delay);
-            socket_.write_some(boost::asio::buffer(str, sizeof(str)));
-
-            delete this;
             //socket_.async_read_some(boost::asio::buffer(data_, max_length),
             //    boost::bind(&session::handle_read, this,
             //        boost::asio::placeholders::error,
@@ -215,50 +297,13 @@ public:
         catch (std::exception e)
         {
             std::cerr << e.what();
-            delete this;
+            return;
         }
         
     }
 
 private:
-    void handle_client()
-    {
-        char str[] = "F: hello";
-        socket_.write_some(boost::asio::buffer(str, sizeof(str)));
-        std::chrono::seconds delay(15);
-        std::this_thread::sleep_for(delay);
-        socket_.write_some(boost::asio::buffer(str, sizeof(str)));
-    }
-    void handle_read(const boost::system::error_code& error,
-        size_t bytes_transferred)
-    {
-        if (!error)
-        {
-            boost::asio::async_write(socket_,
-                boost::asio::buffer(data_, bytes_transferred),
-                boost::bind(&session::handle_write, this,
-                    boost::asio::placeholders::error));
-        }
-        else
-        {
-            delete this;
-        }
-    }
-
-    void handle_write(const boost::system::error_code& error)
-    {
-        if (!error)
-        {
-            socket_.async_read_some(boost::asio::buffer(data_, max_length),
-                boost::bind(&session::handle_read, this,
-                    boost::asio::placeholders::error,
-                    boost::asio::placeholders::bytes_transferred));
-        }
-        else
-        {
-            delete this;
-        }
-    }
+    
 
     tcp::socket socket_;
     enum { max_length = 1024 };
@@ -296,10 +341,7 @@ private:
         {
             new_session->start();
         }
-        else
-        {
-            delete new_session;
-        }
+
         delete new_session;
     }
     void start_accept()

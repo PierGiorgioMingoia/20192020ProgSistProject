@@ -38,7 +38,7 @@ public:
 	}
 
 	// Monitor "path_to_watch" for changes and in case of a change execute the user supplied "action" function
-	void start(const std::function<void(std::string, FileStatus, tcp::socket&)>& action) {
+	void start(const std::function<void(std::string,std::string, FileStatus, tcp::socket&)>& action) {
 		while (running_) {
 			// Wait for "delay" milliseconds
 			std::this_thread::sleep_for(delay);
@@ -46,7 +46,7 @@ public:
 			auto it = paths_.begin();
 			while (it != paths_.end()) {
 				if (!std::filesystem::exists(it->first)) {
-					action(it->first, FileStatus::erased,*s);
+					action(it->first, path_to_watch, FileStatus::erased, *s);
 					it = paths_.erase(it);
 				}
 				else {
@@ -61,13 +61,13 @@ public:
 				// File creation
 				if (!contains(file.path().string())) {
 					paths_[file.path().string()] = current_file_last_write_time;
-					action(file.path().string(), FileStatus::created,*s);
+					action(file.path().string(), path_to_watch, FileStatus::created,*s);
 					// File modification
 				}
 				else {
 					if (paths_[file.path().string()] != current_file_last_write_time) {
 						paths_[file.path().string()] = current_file_last_write_time;
-						action(file.path().string(), FileStatus::modified,*s);
+						action(file.path().string(), path_to_watch, FileStatus::modified,*s);
 					}
 				}
 			}
@@ -112,7 +112,7 @@ private:
 		while (std::getline(ss, pair, '|'))
 		{
 			pos = pair.find(":");
-			mymap.insert({ std::string(pair, 0, pos), std::stoi(std::string(pair, pos + 1)) });
+			mymap.insert({ std::string(path_to_watch).append(std::string(pair, 0, pos).substr(2)), std::stoi(std::string(pair, pos + 1)) });
 			i++;
 		}
 		return i;
