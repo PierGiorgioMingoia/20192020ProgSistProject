@@ -3,39 +3,49 @@
 #include <map>
 #include <boost/filesystem.hpp>
 
-std::string createBackUpFile(std::string user, std::string filePath, std::string fileName) {
+
+class BackUpFile {
+	std::string path;
+	std::filesystem::file_time_type lastModificationTime;
+public:
+	BackUpFile(std::string path, std::filesystem::file_time_type lastModificationTime) :path(path), lastModificationTime(lastModificationTime) {}
+
+	std::string getPath() {
+		return path;
+	}
+	std::filesystem::file_time_type getLastModificationTime() {
+		return lastModificationTime;
+	}
+
+
+};
+
+BackUpFile createBackUpFile(std::string user, std::string filePath, std::string fileName, std::filesystem::file_time_type lastMod) {
 	static int count = 0;
 
-	if (count == 0)
+	if (count == 0) {
 		boost::filesystem::create_directory("Backup");
+		count++;
+	}
 
 	std::string dstPath = "./Backup\\" + user + fileName;
-	/*std::ifstream src(filePath, std::ios::binary);
-	std::ofstream dst(dstPath, std::ios::binary);*/
-
 	boost::filesystem::copy_file(filePath, dstPath);
-	/*
-	dst << src.rdbuf();
-	src.close();
-	dst.close();
-	*/
-	return dstPath;
+	return BackUpFile(dstPath, lastMod );
 }
 
-void deleteBackUpFile(std::map<std::string, std::string> & backUpFiles, std::string filePath) {
-	std::map<std::string, std::string>::iterator  it = backUpFiles.find(filePath);
+void deleteBackUpFile(std::map<std::string, BackUpFile>& backUpFiles, std::string filePath) {
+	std::map<std::string, BackUpFile>::iterator  it = backUpFiles.find(filePath);
 
 	if (it == backUpFiles.end())
 		return;
 	else {
-		boost::filesystem::remove(it->second);
-		std::cout <<it->first << " => " << it->second << '\n';
+		boost::filesystem::remove(it->second.getPath());
 		backUpFiles.erase(it);
-
 	}
 
 }
 
-void overWriteFileBackup(std::string backUpPath, std::string filePath) {
-	boost::filesystem::copy_file(backUpPath, filePath, boost::filesystem::copy_option::overwrite_if_exists);
+void overWriteFileBackup(BackUpFile backUpPath, std::string filePath) {
+	boost::filesystem::copy_file(backUpPath.getPath(), filePath, boost::filesystem::copy_option::overwrite_if_exists);
+	std::filesystem::last_write_time(filePath, backUpPath.getLastModificationTime());
 }

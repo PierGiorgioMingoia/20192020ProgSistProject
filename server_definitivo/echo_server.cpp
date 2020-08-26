@@ -11,6 +11,8 @@
 #include <cstdlib>
 #include <iostream>
 #include <map>
+#include <filesystem>
+#include <chrono>
 #include <boost/bind/bind.hpp>
 #include <boost/asio.hpp>
 #include "FileWatcher.h"
@@ -40,7 +42,7 @@ public:
 		bool sync = false;
 		std::ofstream Ofile;
 		std::string file_name;
-		std::map<std::string, std::string> openBackUpFiles;
+		std::map<std::string, BackUpFile> openBackUpFiles;
 		try
 		{
 			//socket_.write_some(boost::asio::buffer(str, sizeof(str)));
@@ -176,7 +178,7 @@ public:
 						file_name = "./" + user_ + "\\" + reply_str.substr(5, pos - 5);
 
 						std::string realFileName = reply_str.substr(5, pos - 5);
-						openBackUpFiles.insert(std::pair<std::string, std::string>(file_name, createBackUpFile(user_, file_name, realFileName)));
+						openBackUpFiles.insert(std::pair<std::string, BackUpFile>(file_name, createBackUpFile(user_, file_name, realFileName, std::filesystem::last_write_time(file_name))));
 
 
 						// si può forse fare una copia di backup nel caso la modifica non vada a buon fine, una sorta di rollback
@@ -312,7 +314,7 @@ public:
 			//TODO Gestione errore rollback to Backup
 			while (!openBackUpFiles.empty())
 			{
-				std::map<std::string, std::string>::iterator it = openBackUpFiles.begin();
+				std::map<std::string, BackUpFile>::iterator it = openBackUpFiles.begin();
 				overWriteFileBackup(it->second, it->first);
 				openBackUpFiles.erase(it);
 
