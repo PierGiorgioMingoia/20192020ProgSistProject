@@ -37,7 +37,7 @@ public:
         size_t reply_length;
         bool sync = false;
         std::ofstream Ofile;
-
+        std::string file_name;
         try 
         {
             //socket_.write_some(boost::asio::buffer(str, sizeof(str)));
@@ -116,7 +116,7 @@ public:
                 }
             }*/
             std::string reply_str="";                                                   
-            std::string file_name;
+            
             std::filesystem::path p;
             bool cont = true;
 
