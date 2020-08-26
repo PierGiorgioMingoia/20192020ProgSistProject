@@ -271,7 +271,7 @@ public:
 						else
 							reply_str = "";
 
-						deleteBackUpfile(openBackUpFiles, file_name);
+						deleteBackUpFile(openBackUpFiles, file_name);
 
 					}
 					break;

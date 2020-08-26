@@ -22,7 +22,7 @@ std::string createBackUpFile(std::string user, std::string filePath, std::string
 	return dstPath;
 }
 
-void deleteBackUpfile(std::map<std::string, std::string> backUpFiles, std::string filePath) {
+void deleteBackUpFile(std::map<std::string, std::string> & backUpFiles, std::string filePath) {
 	std::map<std::string, std::string>::iterator  it = backUpFiles.find(filePath);
 
 	if (it == backUpFiles.end())
