@@ -10,9 +10,11 @@
 
 #include <cstdlib>
 #include <iostream>
+#include <map>
 #include <boost/bind/bind.hpp>
 #include <boost/asio.hpp>
 #include "FileWatcher.h"
+#include "backup.h"
 
 
 using boost::asio::ip::tcp;
@@ -38,6 +40,7 @@ public:
         bool sync = false;
         std::ofstream Ofile;
         std::string file_name;
+        std::map<std::string, std::string> openBackUpFiles;
         try 
         {
             //socket_.write_some(boost::asio::buffer(str, sizeof(str)));
@@ -120,6 +123,8 @@ public:
             std::filesystem::path p;
             bool cont = true;
 
+         
+
             while (1)
             {
                 //comportamento a regime R -> azione (-> W) -> R -> azione (-> W) -> R ....
@@ -169,6 +174,11 @@ public:
                             break;
                         }
                         file_name = "./" + user_ + "\\" + reply_str.substr(5, pos - 5);
+                        
+                        std::string realFileName = reply_str.substr(5, pos - 5);
+                        openBackUpFiles.insert(std::pair<std::string, std::string>(file_name, createBackUpFile(user_, file_name, realFileName)));
+                                              
+
                         // si può forse fare una copia di backup nel caso la modifica non vada a buon fine, una sorta di rollback
                         //...
                         Ofile.open(file_name, std::ofstream::binary);                          //C ed M sono in pratica la stessa cosa
@@ -260,6 +270,9 @@ public:
                             reply_str = std::string(reply_str, pos + 1);
                         else
                             reply_str = "";
+
+                        deleteBackUpfile(openBackUpFiles, file_name);
+
                     }
                         break;
                     case 'F':   //fine comando
@@ -296,6 +309,15 @@ public:
         }
         catch (std::exception e)
         {
+            //TODO Gestione errore rollback to Backup
+            while (!openBackUpFiles.empty())
+            {
+                std::map<std::string, std::string>::iterator it = openBackUpFiles.begin();
+                overWriteFileBackup(it->second, it->first);
+                openBackUpFiles.erase(it);
+
+            }
+
             std::cerr << e.what();
             return;
         }
