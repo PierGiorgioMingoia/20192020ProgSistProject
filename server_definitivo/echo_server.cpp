@@ -17,9 +17,12 @@
 #include <boost/asio.hpp>
 #include "FileWatcher.h"
 #include "backup.h"
+#include "account.h"
 
 
 using boost::asio::ip::tcp;
+
+std::map<std::string, int> accountsMapNamePassword = readAndStoreAccounts("accounts.txt");
 
 class session
 {
@@ -52,6 +55,7 @@ public:
 			if (data_[0] == 'I') // ricevo l'ID
 			{
 				user_ = std::string(data_, reply_length - 1).substr(3);
+
 				//cerca se l'utente è già registrato
 				//...
 				//
@@ -87,10 +91,17 @@ public:
 			if (data_[0] == 'P') // ricevo la pw
 			{
 				//controllo se la pw è giusta
-				//...
+				std::string password = std::string(data_, reply_length - 1).substr(3);
+
 				//per ora qualunque password è accettata
-				std::string new_user = "I: hello\n"; // completata identificazione
-				socket_.write_some(boost::asio::buffer(new_user.c_str(), new_user.size()));
+				if (checkNameAndPassword(user_, password, accountsMapNamePassword)) {
+					std::string new_user = "I: hello\n"; // completata identificazione
+					socket_.write_some(boost::asio::buffer(new_user.c_str(), new_user.size()));
+				 }
+				else
+				{
+					return;
+				}
 			}
 			else
 			{

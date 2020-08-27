@@ -147,6 +147,7 @@
   <ItemGroup>
     <ClInclude Include="FileWatcher.h" />
     <ClInclude Include="backup.h" />
+    <ClInclude Include="account.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

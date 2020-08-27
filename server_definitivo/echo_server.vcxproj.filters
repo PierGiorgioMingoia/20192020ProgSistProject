@@ -26,5 +26,8 @@
     <ClInclude Include="backup.h">
       <Filter>File di intestazione</Filter>
     </ClInclude>
+    <ClInclude Include="account.h">
+      <Filter>File di intestazione</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
