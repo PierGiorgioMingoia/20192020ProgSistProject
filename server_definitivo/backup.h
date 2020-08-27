@@ -48,4 +48,5 @@ void deleteBackUpFile(std::map<std::string, BackUpFile>& backUpFiles, std::strin
 void overWriteFileBackup(BackUpFile backUpPath, std::string filePath) {
 	boost::filesystem::copy_file(backUpPath.getPath(), filePath, boost::filesystem::copy_option::overwrite_if_exists);
 	std::filesystem::last_write_time(filePath, backUpPath.getLastModificationTime());
+	std::filesystem::remove(backUpPath.getPath());// bisognerebbe anche toglierla dalla mappa ma tanto questa funzione viene chiamata prima della return quindi la mappa verr� cancellata a breve.
 }

@@ -312,6 +312,8 @@ public:
 		catch (std::exception e)
 		{
 			//TODO Gestione errore rollback to Backup
+			if (Ofile.is_open())                      
+				Ofile.close();     
 			while (!openBackUpFiles.empty())
 			{
 				std::map<std::string, BackUpFile>::iterator it = openBackUpFiles.begin();
