@@ -365,9 +365,9 @@ int main(int argc, char* argv[]) {                                              
             try
             {
 
-                if (!std::filesystem::is_regular_file(std::filesystem::path(path_to_watch)) && status != FileStatus::erased) {
+                /*if (!std::filesystem::is_regular_file(std::filesystem::path(path_to_watch)) && status != FileStatus::erased) {
                     return;
-                }
+                }*/
                 // ATTENZIONE dato che l'eseguibile del client è nella cartella da controllare, questo cercherà di mandare una propria copia al server.
                 // bisogna mettere una condizione affinchà ciò non succeda
                 // tutto ciò succede solo quando si usa l'eseguibile,non durante il debug
