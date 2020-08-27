@@ -52,3 +52,23 @@ bool checkNameAndPassword(std::string name, std::string password, const std::map
 		return false;
 	}
 }
+
+
+bool createNewAccount(std::string name, std::string password, std::map<std::string, int>& accounts, std::string filePath) {
+	auto it = accounts.find(name);
+	if (it != accounts.end()) {
+		return false;
+	}
+	else {
+		int hashPassword = computeHashPassword(password);
+		accounts.insert(std::pair<std::string, int>(name, hashPassword));
+		std::ofstream accountsFile(filePath, std::ios_base::app | std::ios_base::out);
+		if (accountsFile.is_open()) {
+			accountsFile << name << " " << hashPassword << "\n";
+			accountsFile.close();
+			return true;
+		}
+		else
+			return false;
+	}
+}
