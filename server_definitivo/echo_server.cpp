@@ -18,6 +18,7 @@
 #include "FileWatcher.h"
 #include "backup.h"
 #include "account.h"
+#include "errorMsg.h"
 
 
 using boost::asio::ip::tcp;
@@ -56,28 +57,8 @@ public:
 			{
 				user_ = std::string(data_, reply_length - 1).substr(3);
 
-				//cerca se l'utente è già registrato
-				//...
-				//
-				if (std::filesystem::exists("./" + user_))// dovrebbe anche avere una mappa<string,string> di user-password e controllare il match
-				{
-					//caso utente già presente
-					//...
-					sync = true;
-					std::string ret_user = "R: hello\n";
-					socket_.write_some(boost::asio::buffer(ret_user.c_str(), ret_user.size()));
-				}
-				else
-				{
-					//caso nuovo utente
-					//...
-					sync = false;
-					std::string new_user = "N: hello\n";
-					std::filesystem::create_directory("./" + user_);
-					socket_.write_some(boost::asio::buffer(new_user.c_str(), new_user.size()));
-				}
-
-
+				std::string ret_user = "R: Login in corso\n";
+				socket_.write_some(boost::asio::buffer(ret_user.c_str(), ret_user.size()));
 
 			}
 			else
@@ -95,11 +76,30 @@ public:
 
 				//per ora qualunque password è accettata
 				if (checkNameAndPassword(user_, password, accountsMapNamePassword)) {
-					std::string new_user = "I: hello\n"; // completata identificazione
-					socket_.write_some(boost::asio::buffer(new_user.c_str(), new_user.size()));
-				 }
+
+					if (std::filesystem::exists("./" + user_))// dovrebbe anche avere una mappa<string,string> di user-password e controllare il match
+					{
+						//caso utente già presente
+						//...
+						sync = true;
+						std::string ret_user = "R: Login effettuato con successo, la tua cartella ti aspetta\n";
+						socket_.write_some(boost::asio::buffer(ret_user.c_str(), ret_user.size()));
+					}
+					else
+					{
+						//caso nuovo utente
+						//...
+						sync = false;
+						std::string new_user = "N: Login effettuato, crezione della cartella \n";
+						std::filesystem::create_directory("./" + user_);
+						socket_.write_some(boost::asio::buffer(new_user.c_str(), new_user.size()));
+					}
+
+				}
 				else
 				{
+					/*std::string loginError = createLoginError();
+					socket_.write_some(boost::asio::buffer(loginError.c_str(), loginError.size()));*/
 					return;
 				}
 			}
@@ -323,8 +323,8 @@ public:
 		catch (std::exception e)
 		{
 			//TODO Gestione errore rollback to Backup
-			if (Ofile.is_open())                      
-				Ofile.close();     
+			if (Ofile.is_open())
+				Ofile.close();
 			while (!openBackUpFiles.empty())
 			{
 				std::map<std::string, BackUpFile>::iterator it = openBackUpFiles.begin();
