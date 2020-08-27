@@ -28,7 +28,7 @@ BackUpFile createBackUpFile(std::string user, std::string filePath, std::string 
 		count++;
 	}
 
-	std::string dstPath = "./Backup\\" + user + fileName;
+	std::string dstPath = "./Backup\\" + user+ fileName; 
 	boost::filesystem::copy_file(filePath, dstPath);
 	return BackUpFile(dstPath, lastMod );
 }
@@ -48,5 +48,5 @@ void deleteBackUpFile(std::map<std::string, BackUpFile>& backUpFiles, std::strin
 void overWriteFileBackup(BackUpFile backUpPath, std::string filePath) {
 	boost::filesystem::copy_file(backUpPath.getPath(), filePath, boost::filesystem::copy_option::overwrite_if_exists);
 	std::filesystem::last_write_time(filePath, backUpPath.getLastModificationTime());
-	std::filesystem::remove(backUpPath.getPath());// bisognerebbe anche toglierla dalla mappa ma tanto questa funzione viene chiamata prima della return quindi la mappa verrï¿½ cancellata a breve.
+	std::filesystem::remove(backUpPath.getPath());// bisognerebbe anche toglierla dalla mappa ma tanto questa funzione viene chiamata prima della return quindi la mappa verrà cancellata a breve.
 }
