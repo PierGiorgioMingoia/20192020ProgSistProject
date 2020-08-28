@@ -20,7 +20,7 @@ using boost::asio::ip::tcp;
 void receive(tcp::socket* s);                                   
 void reconnect(tcp::socket* s, tcp::resolver::results_type* endpoints, std::string* user, std::string* pw);
 void send_file(std::string path, tcp::socket& s);
-int login(tcp::socket& s, std::string& user, std::string& pw);
+int login(tcp::socket& s, std::string& user, std::string& pw, bool first_time= false);
 
 //-------------------------------variabili globali------------------------------------------------
 enum { max_length = 1024 };                                                     //dimensione massima dei messaggi mandabili e ricevibili
@@ -205,22 +205,6 @@ void reconnect(tcp::socket* s, tcp::resolver::results_type* endpoints, std::stri
     }
 
 }                                                                                   //
-         
-             //send file ascii                                                                       ///
-/*void send_file(std::string path, tcp::socket &s)                                    //
-{                                                                                   //
-    std::ifstream iFile(path);                                                      // ifile è un file stream in imput
-    std::string msg;                                                                //
-    if (iFile.is_open())                                                            // se il file non esiste ifile non lo crea perchè di default può solo ricevere (almeno mi sembra)
-    {                                                                               //
-        while (getline(iFile, msg))                                                 // mando riga per riga, può essere ottimizzato
-        {                                                                           //
-            send(std::string("L: ").append(msg).append("\n"), s);                   //
-        }                                                                           //
-                                                                                    //
-    }  
-    
-}   */
 
         //send file binary
 void send_file(std::string path, tcp::socket& s)                                    //
@@ -260,7 +244,7 @@ void send_file(std::string path, tcp::socket& s)                                
 }
      
 
-int login(tcp::socket& s, std::string& user, std::string& pw)
+int login(tcp::socket& s, std::string& user, std::string& pw,bool first_time )
 {
     char buffer[max_length];
     int logged = 0;
@@ -269,50 +253,27 @@ int login(tcp::socket& s, std::string& user, std::string& pw)
     {
         while (!logged)
         {
-            c = ' ';
-            // decido se registrare o fare direttamente il login
-            //
-            // if registrare
+            if (first_time) //solo al primo login, per la riconnesione il protocollo non richiede inserimento di user e pw in quanto riprova con gli ultimi inseriti
+            {
+                c = ' ';
+                // decido se registrare o fare direttamente il login
                 //
-                // chiedo nome e pw      <--|
-                // li invi0                 |
-                // if risposta positiva     |
-                    // esci                 |                        
-                // else --------------------|
-            std::cout << "login o registrazione [l/r] ?:";
-            std::cin >> c;
-            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); //flush di cin
-            if (c != 'l' && c != 'r')                                                           // input errato ricomincia da capo
-            {
-                std::cout << "l -> login, r -> registrazione";
-                continue;
-            }
-
-            if (c == 'r')
-            {
-                std::cout << "username:";
-                std::cin >> user;
+                // if registrare
+                    //
+                    // chiedo nome e pw      <--|
+                    // li invio                 |
+                    // if risposta positiva     |
+                        // esci                 |                        
+                    // else --------------------|
+                std::cout << "login o registrazione [l/r] ?:";
+                std::cin >> c;
                 std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); //flush di cin
-                std::cout << "password:";
-                std::cin >> pw;
-                std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); //flush di cin
-                // presi nome e pw
-
-                send("RGS: " + user + '|' + pw + '\n', s);
-                size_t reply_length = s.read_some(boost::asio::buffer(buffer, max_length));
-                if (buffer[0] == 'E') // errore
+                if (c != 'l' && c != 'r')                                                           // input errato ricomincia da capo
                 {
-                    std::cout << std::string(buffer, 3, reply_length - 3);
+                    std::cout << "l -> login, r -> registrazione";
                     continue;
                 }
-                else
-                {
-                    std::cout << "registrazione avvenuta con successo\n";
-                }
-            }
 
-            if (c == 'l') // se ho già fatto la registrazione ipotizzo di voler utilizzare gli stesssi dati per il login
-            {
                 std::cout << "username:";
                 std::cin >> user;
                 std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); //flush di cin
@@ -320,24 +281,30 @@ int login(tcp::socket& s, std::string& user, std::string& pw)
                 std::cin >> pw;
                 std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); //flush di cin
                 // presi nome e pw
+
+                if (c == 'r')
+                {
+                    
+
+                    send("RGS: " + user + '|' + pw + '\n', s);
+                    size_t reply_length = s.read_some(boost::asio::buffer(buffer, max_length));
+                    if (buffer[0] == 'E') // errore
+                    {
+                        std::cout << std::string(buffer, 3, reply_length - 3);
+                        continue;
+                    }
+                    else
+                    {
+                        std::cout << "registrazione avvenuta con successo\n";
+                    }
+                }
             }
 
             send("I: " + user + "\n", s);
             size_t reply_length = s.read_some(boost::asio::buffer(buffer, max_length));
             std::cout << std::string(buffer, reply_length) << std::endl;
-            /*if (buffer[0] == 'N')
-            {
-                send("P: " + pw + "\n", s);
-                reply_length = s.read_some(boost::asio::buffer(buffer, max_length));
-                if (buffer[0] == 'I')
-                    return 2;   //registrazione avvenuta con successo, nuovo utente (no sync)
-                else if (buffer[0] == 'E')
-                {
-                    std::cout << std::string(buffer, 3, reply_length - 3);
-                    continue;  //password sbagliata, accesso negato
-                }
-            }
-            else*/ if (buffer[0] == 'R')
+
+            if (buffer[0] == 'R')
             {
                 send("P: " + pw + "\n", s);
                 reply_length = s.read_some(boost::asio::buffer(buffer, max_length));
@@ -348,12 +315,13 @@ int login(tcp::socket& s, std::string& user, std::string& pw)
                 else if (buffer[0] == 'E')
                 {
                     std::cout << std::string(buffer, 3, reply_length - 3);
-                    continue;  //password sbagliata, accesso negato
+                    continue;  //password sbagliata o errore generico, accesso negato
                 }
             }
             else //risposta non conforme al protocollo, riiniziare procedura login
             {
-                continue;   //errore di comunicazione
+                std::cout << std::string(buffer, 3, reply_length - 3);
+                continue;   //errore di comunicazione, probabilmente un bug nel server
             }
         }
     }
@@ -414,7 +382,7 @@ int main(int argc, char* argv[]) {                                              
         std::cout << "CLIENT ONLINE" << std::endl;
 
         std::string user, pw; // in realtà poi user e pw vengono chiesti 
-        int log =login(s, user,pw);
+        int log =login(s, user,pw,true);
         std::filesystem::create_directories("./" + user);
         std::string data;
         if (log ==1)                //utente già esistente
@@ -437,9 +405,7 @@ int main(int argc, char* argv[]) {                                              
                 /*if (!std::filesystem::is_regular_file(std::filesystem::path(path_to_watch)) && status != FileStatus::erased) {
                     return;
                 }*/
-                // ATTENZIONE dato che l'eseguibile del client è nella cartella da controllare, questo cercherà di mandare una propria copia al server.
-                // bisogna mettere una condizione affinchà ciò non succeda
-                // tutto ciò succede solo quando si usa l'eseguibile,non durante il debug
+
 
                 std::string msg;
                 std::string relative_path = "./" + path_to_watch.substr(root_folder.size());

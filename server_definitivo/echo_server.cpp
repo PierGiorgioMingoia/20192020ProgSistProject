@@ -41,116 +41,96 @@ public:
 
 	void start()
 	{
-		// hello di debug
-		char str[] = "F: hello\n";
 		size_t reply_length;
-		bool sync = false;
 		std::ofstream Ofile;
 		std::string file_name;
 		std::map<std::string, BackUpFile> openBackUpFiles;
+		bool login = false;
 		try
 		{
-			//socket_.write_some(boost::asio::buffer(str, sizeof(str)));
 
-			//login, il primo messaggio è del client
-			reply_length = socket_.read_some(boost::asio::buffer(data_, max_length));
-			if (convertSocketMsgToString(data_).rfind("RGS", 0) == 0) {
-				std::string userAndPassword = std::string(data_, reply_length - 1).substr(5);
-				if (registrationOfUser(userAndPassword, accountsMapNamePassword, accountsFilePaths)) {
-					std::string ret_user = "R: Registrazione avvenuta con successo\n";
-					socket_.write_some(boost::asio::buffer(ret_user.c_str(), ret_user.size()));
-					this->start();
-				}
-				else {
-					std::string ret_user = "E: Account già esistente\n";
-					socket_.write_some(boost::asio::buffer(ret_user.c_str(), ret_user.size()));
-					this->start();
-				}
-			}
-			else if (data_[0] == 'I') // ricevo l'ID
+			while (!login) //senza login non si passa alla fase successiva
 			{
-				user_ = std::string(data_, reply_length - 1).substr(3);
+				//login o registrazione, il primo messaggio è del client
 
-				std::string ret_user = "R: Login in corso\n";
-				socket_.write_some(boost::asio::buffer(ret_user.c_str(), ret_user.size()));
-
-			}
-			else
-			{
-				std::cerr << "login failed";
-				return;
-			}
-
-			//ricevo la pw
-			reply_length = socket_.read_some(boost::asio::buffer(data_, max_length));
-			if (data_[0] == 'P') // ricevo la pw
-			{
-				//controllo se la pw è giusta
-				std::string password = std::string(data_, reply_length - 1).substr(3);
-
-				//per ora qualunque password è accettata
-				if (checkNameAndPassword(user_, password, accountsMapNamePassword)) {
-
-					if (std::filesystem::exists("./" + user_))// dovrebbe anche avere una mappa<string,string> di user-password e controllare il match
-					{
-						//caso utente già presente
-						//...
-						sync = true;
-						std::string ret_user = "R: Login effettuato con successo, la tua cartella ti aspetta\n";
+				reply_length = socket_.read_some(boost::asio::buffer(data_, max_length));
+				if (convertSocketMsgToString(data_).rfind("RGS", 0) == 0) {					// registrazione nuovo utente
+					std::string userAndPassword = std::string(data_, reply_length - 1).substr(5);
+					if (registrationOfUser(userAndPassword, accountsMapNamePassword, accountsFilePaths)) {
+						std::string ret_user = "R: Registrazione avvenuta con successo\n";
 						socket_.write_some(boost::asio::buffer(ret_user.c_str(), ret_user.size()));
 					}
-					else
-					{
-						//caso nuovo utente
-						//...
-						sync = false;
-						std::string new_user = "N: Login effettuato, crezione della cartella \n";
-						std::filesystem::create_directory("./" + user_);
-						socket_.write_some(boost::asio::buffer(new_user.c_str(), new_user.size()));
+					else {
+						std::string ret_user = "E: Account già esistente\n";
+						socket_.write_some(boost::asio::buffer(ret_user.c_str(), ret_user.size()));
 					}
+					continue; // finita la registrazione (bene o male) attendo di nuovo un messaggio (RGS o I) dal client
+				}
+
+				else if (data_[0] == 'I') // utente già registrato
+				{
+					user_ = std::string(data_, reply_length - 1).substr(3);
+
+					std::string ret_user = "R: Login in corso\n";
+					socket_.write_some(boost::asio::buffer(ret_user.c_str(), ret_user.size()));
 
 				}
 				else
 				{
-					std::string loginError = createLoginError();
-					socket_.write_some(boost::asio::buffer(loginError.c_str(), loginError.size()));
-					this->start();
+					std::cerr << "login failed";
+					std::string ret_user = "E: messaggio ricevuto non conforme allo standard\n";
+					socket_.write_some(boost::asio::buffer(ret_user.c_str(), ret_user.size()));
+					continue; // qui è a scelta, se è arrivato un messaggio codificato male è colpa di un bug nel client probabilmente
+								// quindi anche ripetendo il login è probabile si verifichi all'infinito lo stesso errore, si può mettere un "return"
 				}
-			}
-			else
-			{
-				std::cerr << "login failed";
-				return;
-			}
 
-
-			//sincronizzazione (eventuale)
-			/*if (sync) // spostato dentro lo switch case
-			{
+				//ricevo la pw
 				reply_length = socket_.read_some(boost::asio::buffer(data_, max_length));
-				if (data_[0] == 'S') // ricevo la richiesta di sincronizzazione
+				if (data_[0] == 'P') // ricevuta la pw
 				{
-					FileWatcher fw("./" + user_+"/", std::chrono::milliseconds(5000), socket_);
-					std::string sync_data = fw.get_folder_data();
-					if (sync_data.size() == 0)
-						sync_data.append("|");
-					//faccio cose
-					//...
-					//
-					boost::asio::write(socket_, boost::asio::buffer(sync_data.c_str(), sync_data.size()));
+					//controllo se la pw è giusta
+					std::string password = std::string(data_, reply_length - 1).substr(3);
+					if (checkNameAndPassword(user_, password, accountsMapNamePassword)) {	//se la pw è corretta
+
+						if (std::filesystem::exists("./" + user_))
+						{
+							//caso cartella utente già presente
+							//...
+							std::string ret_user = "R: Login effettuato con successo, la tua cartella ti aspetta\n";
+							socket_.write_some(boost::asio::buffer(ret_user.c_str(), ret_user.size()));
+						}
+						else
+						{
+							//caso utente registrato ma al primo accesso
+							//...
+							std::string new_user = "N: Login effettuato, crezione della cartella \n";
+							std::filesystem::create_directory("./" + user_);
+							socket_.write_some(boost::asio::buffer(new_user.c_str(), new_user.size()));
+						}
+						login = true; // fase login terminata, si può accedere alla fase successiva 
+					}
+					else // pw errata
+					{
+						std::string loginError = createLoginError();
+						socket_.write_some(boost::asio::buffer(loginError.c_str(), loginError.size()));
+						continue; // password errata probabilmente, aspetto che il client riprovi con nuovi dati
+					}
 				}
 				else
 				{
-					std::cerr << "sync failed";
-					delete this;
+					std::cerr << "login failed";
+					std::string ret_user = "E: messaggio ricevuto non conforme allo standard\n";
+					socket_.write_some(boost::asio::buffer(ret_user.c_str(), ret_user.size()));
+					continue; // come prima qui si puù mettere anche un "return" tanto probabilmente un errore nel formato del messaggio è dovuto a un bug nel client
 				}
-			}*/
-			std::string reply_str = "";
 
+			}
+
+
+			// questi tre si possono mettere all'inizio, sono qui perchè sono più vicini a dove vengono utilizzati
+			std::string reply_str = "";				
 			std::filesystem::path p;
 			bool cont = true;
-
-
 
 			while (1)
 			{
@@ -160,13 +140,10 @@ public:
 					reply_length = socket_.read_some(boost::asio::buffer(data_, max_length));
 					reply_str.append(data_, reply_length);
 
-				} while (reply_length == max_length && reply_str.length() < 2048);//&& data_[max_length - 1] != '\n');  //per evitare di spezzare messaggi
+				} while (reply_length == max_length && reply_str.length() < 2048);  //leggo fino a 2048 byte dal socket, se ce n'è meno proseguo con solo quelli letti senza aspettare 
 				cont = true;
 
-				//case multiple lines are read as a single message                      // è possibile che più comandi vengano letti in una sola lettura, 
-				//std::stringstream ss(reply_str);                // ho provato a inizializzarlo fuori dal while e poi assegnargli un valore in questo punto ma poi dava problemi alla getline seguente
-				//token.resize(10000);
-				while (reply_str.length() > 0 && cont)                                   // per ogni comando ottenuto
+				while (reply_str.length() > 0 && cont)                                   // ogni stringa reply_str può contenere 1 o più messaggi o parti di messaggio, ma il primo byte è sempre anche il primo byte di un messaggio
 				{
 					switch (reply_str[0])
 					{
@@ -203,11 +180,10 @@ public:
 						file_name = "./" + user_ + "\\" + reply_str.substr(5, pos - 5);
 
 						std::string realFileName = reply_str.substr(5, pos - 5);
+
+						// copia di backup
 						openBackUpFiles.insert(std::pair<std::string, BackUpFile>(file_name, createBackUpFile(user_, file_name, realFileName, std::filesystem::last_write_time(file_name))));
 
-
-						// si può forse fare una copia di backup nel caso la modifica non vada a buon fine, una sorta di rollback
-						//...
 						Ofile.open(file_name, std::ofstream::binary);                          //C ed M sono in pratica la stessa cosa
 						if (Ofile.is_open())
 							std::cout << "file is open M\n";
@@ -235,7 +211,7 @@ public:
 							reply_str = "";
 					}
 					break;
-					case 'L':   //linea
+					case 'L':   //linea da inserire in append a un file
 					{
 						if (reply_str.length() < 8)
 						{
@@ -298,14 +274,12 @@ public:
 						else
 							reply_str = "";
 
-						deleteBackUpFile(openBackUpFiles, file_name);
+						deleteBackUpFile(openBackUpFiles, file_name); // finita la modifica elimino la copia di backup ( in caso di file creato non avviene nulla in quanto non esiste la copia da eliminare
 
 					}
 					break;
 					case 'F':   //fine comando
 					{
-						//per ora metto il close qui
-						//Ofile.close();
 						// controllo qualunque cosa mi possa servire
 						//...
 						//mando l'ack
@@ -323,15 +297,15 @@ public:
 						std::cout << "F" << file_name << std::endl;
 					}
 					break;
-					default:
-						break;
+					default: // comando non prestabilito
+					{
+						std::string str("E: errore in formato messaggio\n");
+						boost::asio::write(socket_, boost::asio::buffer(str.c_str(), str.length()));
+						break; // o "return" tanto probabilmente è causato da un bug 
+					}
 					}
 				}
 			}
-			//socket_.async_read_some(boost::asio::buffer(data_, max_length),
-			//    boost::bind(&session::handle_read, this,
-			//        boost::asio::placeholders::error,
-			//        boost::asio::placeholders::bytes_transferred));
 
 		}
 		catch (std::exception e)
@@ -438,7 +412,6 @@ int main(int argc, char* argv[])
 		using namespace std; // For atoi.
 		server s(io_context, atoi(argv[1]));
 		s.run();
-		//io_context.run();
 	}
 	catch (std::exception& e)
 	{
