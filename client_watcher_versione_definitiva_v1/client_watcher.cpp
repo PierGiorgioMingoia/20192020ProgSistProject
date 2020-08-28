@@ -325,7 +325,7 @@ int login(tcp::socket& s, std::string& user, std::string& pw)
             send("I: " + user + "\n", s);
             size_t reply_length = s.read_some(boost::asio::buffer(buffer, max_length));
             std::cout << std::string(buffer, reply_length) << std::endl;
-            if (buffer[0] == 'N')
+            /*if (buffer[0] == 'N')
             {
                 send("P: " + pw + "\n", s);
                 reply_length = s.read_some(boost::asio::buffer(buffer, max_length));
@@ -337,12 +337,14 @@ int login(tcp::socket& s, std::string& user, std::string& pw)
                     continue;  //password sbagliata, accesso negato
                 }
             }
-            else if (buffer[0] == 'R')
+            else*/ if (buffer[0] == 'R')
             {
                 send("P: " + pw + "\n", s);
                 reply_length = s.read_some(boost::asio::buffer(buffer, max_length));
-                if (buffer[0] == 'I')
+                if (buffer[0] == 'R')
                     return 1;   //identificazione avvenuta con successo, utente già esistente (sync necessaria)
+                else if (buffer[0] == 'N')
+                    return 2;   //identificazione avvenuta con successo, utente nouvo (no sync)
                 else if (buffer[0] == 'E')
                 {
                     std::cout << std::string(buffer, 3, reply_length - 3);
