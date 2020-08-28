@@ -1,5 +1,12 @@
 #include <iostream>
-
+#include <string>
+#include <vector>
 std::string createLoginError() {
-	return "Login fallito";
+	return "E: Login fallito\n";
+}
+
+
+std::string convertSocketMsgToString(char* data) {
+	std::string s(data);
+	return s;
 }

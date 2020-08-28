@@ -23,7 +23,8 @@
 
 using boost::asio::ip::tcp;
 
-std::map<std::string, int> accountsMapNamePassword = readAndStoreAccounts("accounts.txt");
+std::string accountsFilePaths = "accounts.txt";
+std::map<std::string, int> accountsMapNamePassword = readAndStoreAccounts(accountsFilePaths);
 
 class session
 {
@@ -53,7 +54,20 @@ public:
 
 			//login, il primo messaggio è del client
 			reply_length = socket_.read_some(boost::asio::buffer(data_, max_length));
-			if (data_[0] == 'I') // ricevo l'ID
+			if (convertSocketMsgToString(data_).rfind("RGS", 0) == 0) {
+				std::string userAndPassword = std::string(data_, reply_length - 1).substr(5);
+				if (registrationOfUser(userAndPassword, accountsMapNamePassword, accountsFilePaths)) {
+					std::string ret_user = "R: Registrazione avvenuta con successo\n";
+					socket_.write_some(boost::asio::buffer(ret_user.c_str(), ret_user.size()));
+					this->start();
+				}
+				else {
+					std::string ret_user = "E: Account già esistente\n";
+					socket_.write_some(boost::asio::buffer(ret_user.c_str(), ret_user.size()));
+					this->start();
+				}
+			}
+			else if (data_[0] == 'I') // ricevo l'ID
 			{
 				user_ = std::string(data_, reply_length - 1).substr(3);
 
@@ -98,9 +112,9 @@ public:
 				}
 				else
 				{
-					/*std::string loginError = createLoginError();
-					socket_.write_some(boost::asio::buffer(loginError.c_str(), loginError.size()));*/
-					return;
+					std::string loginError = createLoginError();
+					socket_.write_some(boost::asio::buffer(loginError.c_str(), loginError.size()));
+					this->start();
 				}
 			}
 			else

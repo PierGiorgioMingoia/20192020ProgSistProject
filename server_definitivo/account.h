@@ -41,7 +41,7 @@ bool checkNameAndPassword(std::string name, std::string password, const std::map
 			return true;
 		else
 		{
-			std::cout << "Tentativo di accesso di " << name << "con password errata" << std::endl;
+			std::cout << "Tentativo di accesso di " << name << " con password errata" << std::endl;
 			return false;
 
 		}
@@ -71,4 +71,12 @@ bool createNewAccount(std::string name, std::string password, std::map<std::stri
 		else
 			return false;
 	}
+}
+
+bool registrationOfUser(std::string userAndPassword, std::map<std::string, int>& accounts, std::string filePath) {
+	std::string username, password;
+	std::string delimiter = "|";
+	username = userAndPassword.substr(0, userAndPassword.find(delimiter));
+	password = userAndPassword.substr(userAndPassword.find(delimiter)+1, userAndPassword.length());
+	return createNewAccount(username, password, accounts, filePath);
 }
