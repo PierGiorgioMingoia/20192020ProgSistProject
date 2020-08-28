@@ -10,6 +10,7 @@
 #include <string>
 #include <iomanip>
 
+
 #define BUFFER_SIZE 5                                                           // è il numero di comandi che può mandare prima di dover attendere una risposta dal server
 
 using boost::asio::ip::tcp;
@@ -19,7 +20,7 @@ using boost::asio::ip::tcp;
 void receive(tcp::socket* s);                                   
 void reconnect(tcp::socket* s, tcp::resolver::results_type* endpoints, std::string* user, std::string* pw);
 void send_file(std::string path, tcp::socket& s);
-int login(tcp::socket& s, std::string user, std::string pw);
+int login(tcp::socket& s, std::string& user, std::string& pw);
 
 //-------------------------------variabili globali------------------------------------------------
 enum { max_length = 1024 };                                                     //dimensione massima dei messaggi mandabili e ricevibili
@@ -259,33 +260,99 @@ void send_file(std::string path, tcp::socket& s)                                
 }
      
 
-int login(tcp::socket& s, std::string user, std::string pw)
+int login(tcp::socket& s, std::string& user, std::string& pw)
 {
+    char buffer[max_length];
+    int logged = 0;
+    char c;
     try
     {
-        char buffer[max_length];
-        send("I: " + user + "\n", s);
-        size_t reply_length = s.read_some(boost::asio::buffer(buffer, max_length));
-        std::cout << std::string(buffer, reply_length) << std::endl;
-        if (buffer[0] == 'N')
+        while (!logged)
         {
-            send("P: " + pw + "\n", s);
-            reply_length = s.read_some(boost::asio::buffer(buffer, max_length));
-            if (buffer[0] == 'I')
-                return 2;   //registrazione avvenuta con successo, nuovo utente
-        }
-        else if (buffer[0] == 'R')
-        {
-            send("P: " + pw + "\n", s);
-            reply_length = s.read_some(boost::asio::buffer(buffer, max_length));
-            if (buffer[0] == 'I')
-                return 1;   //identificazione avvenuta con successo, utente già esistente
-            else if (buffer[0] == 'X')
-                return -1;  //password sbagliata, accesso negato
-        }
-        else
-        {
-            return 0;   //errore di comunicazione
+            c = ' ';
+            // decido se registrare o fare direttamente il login
+            //
+            // if registrare
+                //
+                // chiedo nome e pw      <--|
+                // li invi0                 |
+                // if risposta positiva     |
+                    // esci                 |                        
+                // else --------------------|
+            std::cout << "login o registrazione [l/r] ?:";
+            std::cin >> c;
+            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); //flush di cin
+            if (c != 'l' && c != 'r')                                                           // input errato ricomincia da capo
+            {
+                std::cout << "l -> login, r -> registrazione";
+                continue;
+            }
+
+            if (c == 'r')
+            {
+                std::cout << "username:";
+                std::cin >> user;
+                std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); //flush di cin
+                std::cout << "password:";
+                std::cin >> pw;
+                std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); //flush di cin
+                // presi nome e pw
+
+                send("RGS: " + user + '|' + pw + '\n', s);
+                size_t reply_length = s.read_some(boost::asio::buffer(buffer, max_length));
+                if (buffer[0] == 'E') // errore
+                {
+                    std::cout << std::string(buffer, 3, reply_length - 3);
+                    continue;
+                }
+                else
+                {
+                    std::cout << "registrazione avvenuta con successo\n";
+                }
+            }
+
+            if (c == 'l') // se ho già fatto la registrazione ipotizzo di voler utilizzare gli stesssi dati per il login
+            {
+                std::cout << "username:";
+                std::cin >> user;
+                std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); //flush di cin
+                std::cout << "password:";
+                std::cin >> pw;
+                std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); //flush di cin
+                // presi nome e pw
+            }
+
+            send("I: " + user + "\n", s);
+            size_t reply_length = s.read_some(boost::asio::buffer(buffer, max_length));
+            std::cout << std::string(buffer, reply_length) << std::endl;
+            if (buffer[0] == 'N')
+            {
+                send("P: " + pw + "\n", s);
+                reply_length = s.read_some(boost::asio::buffer(buffer, max_length));
+                if (buffer[0] == 'I')
+                    return 2;   //registrazione avvenuta con successo, nuovo utente (no sync)
+                else if (buffer[0] == 'E')
+                {
+                    std::cout << std::string(buffer, 3, reply_length - 3);
+                    continue;  //password sbagliata, accesso negato
+                }
+            }
+            else if (buffer[0] == 'R')
+            {
+                send("P: " + pw + "\n", s);
+                reply_length = s.read_some(boost::asio::buffer(buffer, max_length));
+                if (buffer[0] == 'I')
+                    return 1;   //identificazione avvenuta con successo, utente già esistente (sync necessaria)
+                else if (buffer[0] == 'E')
+                {
+                    std::cout << std::string(buffer, 3, reply_length - 3);
+                    continue;  //password sbagliata, accesso negato
+                }
+            }
+            else //risposta non conforme al protocollo, riiniziare procedura login
+            {
+                continue;   //errore di comunicazione
+            }
         }
     }
     catch (std::exception& e)                                                   //
@@ -322,9 +389,9 @@ int main(int argc, char* argv[]) {                                              
                                                                                     //
     try                                                                             //
     {                                                                               //
-        if (argc != 5)                                                              //controllo sugli argomenti
+        if (argc !=3)                                                              //controllo sugli argomenti
         {                                                                           //
-            std::cerr << "Usage: client_watcher <host> <port> <userID> <password>\n";         //
+            std::cerr << "Usage: client_watcher <host> <port>\n";         //
             return 1;                                                               //
         }                                                                           //
                                                                                     //
@@ -344,9 +411,9 @@ int main(int argc, char* argv[]) {                                              
 
         std::cout << "CLIENT ONLINE" << std::endl;
 
-        std::string user(argv[3]), pw(argv[4]);
-        std::filesystem::create_directories("./" + user);
+        std::string user, pw; // in realtà poi user e pw vengono chiesti 
         int log =login(s, user,pw);
+        std::filesystem::create_directories("./" + user);
         std::string data;
         if (log ==1)                //utente già esistente
             data = syncronize(s);
