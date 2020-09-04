@@ -312,7 +312,10 @@ public:
 		{
 			//TODO Gestione errore rollback to Backup
 			if (Ofile.is_open())
+			{
 				Ofile.close();
+				std::filesystem::remove(file_name);
+			}
 			while (!openBackUpFiles.empty())
 			{
 				std::map<std::string, BackUpFile>::iterator it = openBackUpFiles.begin();
