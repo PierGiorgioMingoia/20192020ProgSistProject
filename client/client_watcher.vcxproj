@@ -89,12 +89,12 @@
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>G:\enrico\politecnico\magistrale\programmazione di sistema\boost_1_73_0</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Boost\boost_1_73_0\boost_1_73_0;G:\enrico\politecnico\magistrale\programmazione di sistema\boost_1_73_0</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>G:\enrico\politecnico\magistrale\programmazione di sistema\boost_1_73_0\stage\lib</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>C:\Boost\boost_1_73_0\boost_1_73_0\stage\lib;G:\enrico\politecnico\magistrale\programmazione di sistema\boost_1_73_0\stage\lib</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
