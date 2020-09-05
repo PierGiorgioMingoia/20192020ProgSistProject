@@ -1,0 +1,5 @@
+1)Testo riordinato e corretto (client e server)
+2)Selezionare server di Backup
+3)Download intera cartella
+4)Deployment dell'applicazione 
+5)Warinigs
