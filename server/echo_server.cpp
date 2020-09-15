@@ -2,7 +2,7 @@
 // async_tcp_echo_server.cpp
 // ~~~~~~~~~~~~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2020 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+//
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -159,10 +159,10 @@ public:
 						p = std::filesystem::path(file_name).remove_filename();
 						std::filesystem::create_directories(p);
 						Ofile.open(file_name, std::ofstream::binary);
-						if (Ofile.is_open())                        //tutte queste stampe poi vanno eliminate
+						/*if (Ofile.is_open())                        //tutte queste stampe poi vanno eliminate
 							std::cout << "file is open C\n";          //tutte queste stampe poi vanno eliminate
 						else                                        //tutte queste stampe poi vanno eliminate
-							std::cout << "file is not open\n";      //tutte queste stampe poi vanno eliminate
+							std::cout << "file is not open\n"; */     //tutte queste stampe poi vanno eliminate
 						if (pos < reply_str.length() - 1)
 							reply_str = std::string(reply_str, pos + 1);
 						else
@@ -185,10 +185,10 @@ public:
 						openBackUpFiles.insert(std::pair<std::string, BackUpFile>(file_name, createBackUpFile(user_, file_name, realFileName, std::filesystem::last_write_time(file_name))));
 
 						Ofile.open(file_name, std::ofstream::binary);                          //C ed M sono in pratica la stessa cosa
-						if (Ofile.is_open())
+						/*if (Ofile.is_open())
 							std::cout << "file is open M\n";
 						else
-							std::cout << "file is not open\n";
+							std::cout << "file is not open\n";*/
 						if (pos < reply_str.length() - 1)
 							reply_str = std::string(reply_str, pos + 1);
 						else
@@ -224,10 +224,10 @@ public:
 							cont = false;
 							break;
 						}
-						if (Ofile.is_open())
+						/*if (Ofile.is_open())
 							std::cout << "file is open L\n";
 						else
-							std::cout << "file is not open\n";
+							std::cout << "file is not open\n";*/
 						if (n != 0)
 							Ofile.write(reply_str.c_str() + 8, n);
 						if (n == reply_str.length() - 8)
@@ -294,7 +294,7 @@ public:
 							reply_str = std::string(reply_str, pos + 1);
 						else
 							reply_str = "";
-						std::cout << "F" << file_name << std::endl;
+						std::cout << "Operazione terminata su F" << file_name << std::endl;
 					}
 					break;
 					default: // comando non prestabilito

@@ -37,8 +37,10 @@ bool checkNameAndPassword(std::string name, std::string password, const std::map
 	auto it = accounts.find(name);
 	if (it != accounts.end()) {
 
-		if (it->second == computeHashPassword(password))
+		if (it->second == computeHashPassword(password)) {
+			std::cout << name << " ha eseguito l'accesso con successo" << std::endl;
 			return true;
+		}
 		else
 		{
 			std::cout << "Tentativo di accesso di " << name << " con password errata" << std::endl;

@@ -43,7 +43,7 @@ void send(char* msg, int size, tcp::socket& s)
     using namespace std;
     try {
         cout_access.lock();                                                         //stampa per debug
-        std::cout << "sending bytes..." << std::endl;                               //stampa per debug
+        //std::cout << "sending bytes..." << std::endl;                               //stampa per debug
         cout_access.unlock();                                                       //stampa per debug
 
         boost::asio::write(s, boost::asio::buffer(msg, size));        // scrittura sul socket, è qui che può partire l'eccezione da catturare
@@ -67,7 +67,7 @@ void send(std::string msg,tcp::socket &s)                                       
         //request_length = strlen(request);                                           // leggo la lunghezza
 
         cout_access.lock();                                                         //stampa per debug
-        std::cout << "sent message: "<< msg;                                    //stampa per debug
+        //std::cout << "sent message: "<< msg;                                    //stampa per debug
         cout_access.unlock();                                                       //stampa per debug
 
         boost::asio::write(s, boost::asio::buffer(msg.c_str(), msg.size()));        // scrittura sul socket, è qui che può partire l'eccezione da catturare
@@ -177,7 +177,7 @@ void reconnect(tcp::socket* s, tcp::resolver::results_type* endpoints, std::stri
                 lk_buf.unlock();                                                        //
                                                                                         // terminata la funzione di riconnessione
                 cout_access.lock();                                                     // stampa di debug
-                std::cout << "CLIENT ONLINE" << std::endl;                              // stampa di debug
+                std::cout << "Connessione avvenuta con successo" << std::endl;                              // stampa di debug
                 cout_access.unlock();                                                   // stampa di debug
 
 
@@ -265,7 +265,7 @@ int login(tcp::socket& s, std::string& user, std::string& pw,bool first_time )
                     // if risposta positiva     |
                         // esci                 |                        
                     // else --------------------|
-                std::cout << "login o registrazione [l/r] ?:";
+                std::cout << "Esegui accesso o crea un nuovo profilo [l/r] ?:";
                 std::cin >> c;
                 std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); //flush di cin
                 if (c != 'l' && c != 'r')                                                           // input errato ricomincia da capo
@@ -274,10 +274,10 @@ int login(tcp::socket& s, std::string& user, std::string& pw,bool first_time )
                     continue;
                 }
 
-                std::cout << "username:";
+                std::cout << "Username:";
                 std::cin >> user;
                 std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); //flush di cin
-                std::cout << "password:";
+                std::cout << "Password:";
                 std::cin >> pw;
                 std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); //flush di cin
                 // presi nome e pw
@@ -295,7 +295,7 @@ int login(tcp::socket& s, std::string& user, std::string& pw,bool first_time )
                     }
                     else
                     {
-                        std::cout << "registrazione avvenuta con successo\n";
+                        std::cout << "Registrazione avvenuta con successo\n";
                     }
                 }
             }
@@ -308,10 +308,14 @@ int login(tcp::socket& s, std::string& user, std::string& pw,bool first_time )
             {
                 send("P: " + pw + "\n", s);
                 reply_length = s.read_some(boost::asio::buffer(buffer, max_length));
-                if (buffer[0] == 'R')
+                if (buffer[0] == 'R') {
+                    std::cout << std::string(buffer, 3, reply_length - 3);
                     return 1;   //identificazione avvenuta con successo, utente già esistente (sync necessaria)
-                else if (buffer[0] == 'N')
+                }
+                else if (buffer[0] == 'N') {
+                    std::cout << std::string(buffer, 3, reply_length - 3);
                     return 2;   //identificazione avvenuta con successo, utente nouvo (no sync)
+                }
                 else if (buffer[0] == 'E')
                 {
                     std::cout << std::string(buffer, 3, reply_length - 3);
@@ -379,7 +383,7 @@ int main(int argc, char* argv[]) {                                              
         //s.read_some(boost::asio::buffer(reply, max_length));                      //
         //std::cout <<"server said :" << reply;
 
-        std::cout << "CLIENT ONLINE" << std::endl;
+        std::cout << "Connessione avvenuta con successo" << std::endl;
 
         std::string user, pw; // in realtà poi user e pw vengono chiesti 
         int log =login(s, user,pw,true);
