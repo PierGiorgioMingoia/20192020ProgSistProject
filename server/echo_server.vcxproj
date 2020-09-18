@@ -152,6 +152,7 @@
     <ClInclude Include="backup.h" />
     <ClInclude Include="account.h" />
     <ClInclude Include="errorMsg.h" />
+    <ClInclude Include="FullBackup.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

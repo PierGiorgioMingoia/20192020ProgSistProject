@@ -19,6 +19,7 @@
 #include "backup.h"
 #include "account.h"
 #include "errorMsg.h"
+#include "FullBackup.h"
 
 
 using boost::asio::ip::tcp;
@@ -308,6 +309,10 @@ public:
 						std::cout << "Operazione terminata su F" << file_name << std::endl;
 					}
 					break;
+					case 'B':
+					{
+						sendEntireUserFolder(user_, socket_);
+					}
 					default: // comando non prestabilito
 					{
 						std::string str("E: errore in formato messaggio\n");
