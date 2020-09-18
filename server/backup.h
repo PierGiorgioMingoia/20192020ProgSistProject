@@ -1,7 +1,9 @@
+#pragma once
 #include <iostream>
 #include <fstream>
 #include <map>
 #include <boost/filesystem.hpp>
+#include <filesystem>
 
 
 class BackUpFile {
@@ -16,8 +18,6 @@ public:
 	std::filesystem::file_time_type getLastModificationTime() {
 		return lastModificationTime;
 	}
-
-
 };
 
 BackUpFile createBackUpFile(std::string user, std::string filePath, std::string fileName, std::filesystem::file_time_type lastMod) {

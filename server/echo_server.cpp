@@ -159,10 +159,26 @@ public:
 						p = std::filesystem::path(file_name).remove_filename();
 						std::filesystem::create_directories(p);
 						Ofile.open(file_name, std::ofstream::binary);
-						/*if (Ofile.is_open())                        //tutte queste stampe poi vanno eliminate
-							std::cout << "file is open C\n";          //tutte queste stampe poi vanno eliminate
-						else                                        //tutte queste stampe poi vanno eliminate
-							std::cout << "file is not open\n"; */     //tutte queste stampe poi vanno eliminate
+
+						if (pos < reply_str.length() - 1)
+							reply_str = std::string(reply_str, pos + 1);
+						else
+							reply_str = "";
+					}
+					break;
+					case 'D':   //crea cartella vuota
+					{
+						int pos = reply_str.find('\n');
+						if (pos == std::string::npos)
+						{
+							cont = false;
+							break;
+						}
+						file_name = "./" + user_ + "\\" + reply_str.substr(5, pos - 5);
+						p = std::filesystem::path(file_name);
+						std::filesystem::create_directories(p);
+						Ofile.open(file_name, std::ofstream::binary);
+
 						if (pos < reply_str.length() - 1)
 							reply_str = std::string(reply_str, pos + 1);
 						else
@@ -185,10 +201,7 @@ public:
 						openBackUpFiles.insert(std::pair<std::string, BackUpFile>(file_name, createBackUpFile(user_, file_name, realFileName, std::filesystem::last_write_time(file_name))));
 
 						Ofile.open(file_name, std::ofstream::binary);                          //C ed M sono in pratica la stessa cosa
-						/*if (Ofile.is_open())
-							std::cout << "file is open M\n";
-						else
-							std::cout << "file is not open\n";*/
+
 						if (pos < reply_str.length() - 1)
 							reply_str = std::string(reply_str, pos + 1);
 						else
@@ -224,10 +237,7 @@ public:
 							cont = false;
 							break;
 						}
-						/*if (Ofile.is_open())
-							std::cout << "file is open L\n";
-						else
-							std::cout << "file is not open\n";*/
+
 						if (n != 0)
 							Ofile.write(reply_str.c_str() + 8, n);
 						if (n == reply_str.length() - 8)
@@ -267,7 +277,8 @@ public:
 							cont = false;
 							break;
 						}
-						Ofile.close();
+						if (Ofile.is_open())
+							Ofile.close();
 						boost::filesystem::last_write_time(file_name, std::stoi(reply_str.substr(3, pos - 3)));
 						if (pos < reply_str.length() - 1)
 							reply_str = std::string(reply_str, pos + 1);
@@ -371,28 +382,6 @@ private:
 		}
 
 		delete new_session;
-	}
-	void start_accept()
-	{
-		session* new_session = new session(io_context_);
-		acceptor_.async_accept(new_session->socket(),
-			boost::bind(&server::handle_accept, this, new_session,
-				boost::asio::placeholders::error));
-	}
-
-	void handle_accept(session* new_session,
-		const boost::system::error_code& error)
-	{
-		if (!error)
-		{
-			new_session->start();
-		}
-		else
-		{
-			delete new_session;
-		}
-
-		start_accept();
 	}
 
 	boost::asio::io_context& io_context_;
