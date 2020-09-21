@@ -178,7 +178,6 @@ public:
 						file_name = "./" + user_ + "\\" + reply_str.substr(5, pos - 5);
 						p = std::filesystem::path(file_name);
 						std::filesystem::create_directories(p);
-						Ofile.open(file_name, std::ofstream::binary);
 
 						if (pos < reply_str.length() - 1)
 							reply_str = std::string(reply_str, pos + 1);
@@ -311,8 +310,20 @@ public:
 					break;
 					case 'B':
 					{
+						int pos = reply_str.find('\n');
+						if (pos == std::string::npos)
+						{
+							cont = false;
+							break;
+						}
 						sendEntireUserFolder(user_, socket_);
+						boost::asio::write(socket_, boost::asio::buffer("F: \n",4));
+						if (pos < reply_str.length() - 1)
+							reply_str = std::string(reply_str, pos + 1);
+						else
+							reply_str = "";
 					}
+					break;
 					default: // comando non prestabilito
 					{
 						std::string str("E: errore in formato messaggio\n");

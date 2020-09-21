@@ -28,7 +28,8 @@ BackUpFile createBackUpFile(std::string user, std::string filePath, std::string 
 		count++;
 	}
 
-	std::string dstPath = "./Backup\\" + user+ fileName; 
+	std::string dstPath = "./Backup\\" + user + "\\" + fileName;
+	std::filesystem::create_directories(std::filesystem::path(dstPath).remove_filename());
 	boost::filesystem::copy_file(filePath, dstPath);
 	return BackUpFile(dstPath, lastMod );
 }

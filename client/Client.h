@@ -16,6 +16,8 @@ void reconnect(tcp::socket* s, tcp::resolver::results_type* endpoints, std::stri
 void send_file(std::string path, tcp::socket& s);
 int login(tcp::socket& s, std::string& user, std::string& pw, bool first_time = false);
 std::string syncronize(tcp::socket& s);
+bool backup(tcp::socket& s,std::string user);
+std::string backup_or_sync(tcp::socket& s,std::string user);
 void send(std::string msg, tcp::socket& s);
 void send(const char* msg, int size, tcp::socket& s);
 
@@ -64,7 +66,7 @@ public:
         std::filesystem::create_directories("./" + user);
         std::string data;
         if (log == 1)                //utente già esistente
-            data = syncronize(s);
+            data = backup_or_sync(s,user);// syncronize(s);
         if (log == 2)               //utente nuovo
             data = "|";
 
@@ -98,13 +100,15 @@ public:
                                                                                         //
                     if (std::filesystem::is_directory(std::filesystem::path(path_to_watch))) 
                     {
-                        msg.append("D: " + relative_path + '\n');                           // comando D
-                        /*lk.lock();                                                          //
-                        msg_buffer.insert_or_assign(relative_path, std::string("D"));         // è necessario? insomma una cartella vuota non ha molta utilità
-                        lk.unlock();        */                                                //
-                        send(msg, s);                                                       //                                    //
-                        send(std::string("U: ").append(std::to_string(boost::filesystem::last_write_time(path_to_watch))).append("\n"), s);
-                        send(std::string("F: ").append(relative_path).append("\n"), s);     // 
+                        if (std::filesystem::is_empty(std::filesystem::path(path_to_watch)))
+                        {
+                            msg.append("D: " + relative_path + '\n');                           // comando D
+                            /*lk.lock();                                                          //
+                            msg_buffer.insert_or_assign(relative_path, std::string("D"));         // è necessario? insomma una cartella vuota non ha molta utilità
+                            lk.unlock();        */                                                //
+                            send(msg, s);                                                       //                                    //
+                            send(std::string("F: ").append(relative_path).append("\n"), s);     // 
+                        }
                         return;
                     }
                     //std::cout << "C: " << path_to_watch << '\n';                      //
@@ -423,7 +427,8 @@ int login(tcp::socket& s, std::string& user, std::string& pw, bool first_time)
 
                     send("RGS: " + user + '|' + pw + '\n', s);
                     size_t reply_length = s.read_some(boost::asio::buffer(buffer, max_length));
-                    if (buffer[0] == 'E') // errore
+                    // in realtà il confronto andrebbe fatto col caso giust, non con l'errore
+                    if (buffer[0] == 'E') // errore 
                     {
                         std::cout << std::string(buffer, 3, reply_length - 3);
                         continue;
@@ -498,5 +503,179 @@ std::string syncronize(tcp::socket& s)
     {                                                                           //
         std::cerr << "Exception in syncronize: " << e.what() << "\n";
         throw;
+    }
+}
+
+
+std::string backup_or_sync(tcp::socket& s,std::string user)
+{
+    using namespace std;
+    bool correct = false;
+    char c;
+    string data;
+
+    try
+    {
+
+        while (!correct)
+        {
+            cout << "effettuare il download del contenuto corrente? [s/n]: " << endl;
+            std::cin >> c;
+            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); //flush di cin
+            if (c != 's' && c != 'n')                                                           // input errato ricomincia da capo
+            {
+                std::cout << "s -> download, n -> continua senza download";
+                continue;
+            }
+            else
+                correct = true;
+        }
+        if (c == 's')
+        {
+            bool done = false;
+            int n = 0;
+
+            while (!done && n++ < 10)
+                done = backup(s,user);
+            data = "-";
+            if (!done)
+                throw std::exception("impossibile ottenere copia di backup dal server");
+        }
+        else
+            data = syncronize(s);
+        return data;
+    }
+    catch (std::exception e)
+    {
+        throw e;
+    }
+}
+
+bool backup(tcp::socket& s,std::string user)
+{
+    std::string reply_str = "";
+    std::filesystem::path p;
+    bool cont = true,end=false;
+    int reply_length;
+    char data[max_length];
+    std::string file_name;
+    std::ofstream Ofile;
+
+
+    try
+    {
+        send("B: \n", s);
+
+        while (!end)
+        {
+            do
+            {
+                reply_length = s.read_some(boost::asio::buffer(data, max_length));
+                reply_str.append(data, reply_length);
+
+            } while (reply_length == max_length && reply_str.length() < 2048);  //leggo fino a 2048 byte dal socket, se ce n'è meno proseguo con solo quelli letti senza aspettare 
+            cont = true;
+
+            while (reply_str.length() > 0 && cont)                                   // ogni stringa reply_str può contenere 1 o più messaggi o parti di messaggio, ma il primo byte è sempre anche il primo byte di un messaggio
+            {
+                switch (reply_str[0])
+                {
+                case 'C':   //crea
+                {
+                    int pos = reply_str.find('\n');
+                    if (pos == std::string::npos)
+                    {
+                        cont = false;
+                        break;
+                    }
+                    file_name = reply_str.substr(3, pos - 3);
+                    p = std::filesystem::path(file_name).remove_filename();
+                    std::filesystem::create_directories(p);
+                    Ofile.open(file_name, std::ofstream::binary);
+
+                    if (pos < reply_str.length() - 1)
+                        reply_str = std::string(reply_str, pos + 1);
+                    else
+                        reply_str = "";
+                }
+                break;
+                case 'D':   //crea cartella vuota
+                {
+                    int pos = reply_str.find('\n');
+                    if (pos == std::string::npos)
+                    {
+                        cont = false;
+                        break;
+                    }
+                    file_name = reply_str.substr(3, pos - 3);
+                    p = std::filesystem::path(file_name);
+                    std::filesystem::create_directories(p);
+                    Ofile.open(file_name, std::ofstream::binary);
+
+                    if (pos < reply_str.length() - 1)
+                        reply_str = std::string(reply_str, pos + 1);
+                    else
+                        reply_str = "";
+                }
+                break;
+                case 'L':   //linea da inserire in append a un file
+                {
+                    if (reply_str.length() < 8)
+                    {
+                        cont = false;
+                        break;
+                    }
+                    int n = std::stoi(reply_str.substr(3, 4));
+                    if (reply_str.length() < n + 8)
+                    {
+                        cont = false;
+                        break;
+                    }
+
+                    if (n != 0)
+                        Ofile.write(reply_str.c_str() + 8, n);
+                    if (n == reply_str.length() - 8)
+                        reply_str = "";
+                    else
+                        reply_str = std::string(reply_str, n + 8);
+                }
+                break;
+                case 'U':   //ultima modifica
+                {
+                    int pos = reply_str.find('\n');
+                    if (pos == std::string::npos)
+                    {
+                        cont = false;
+                        break;
+                    }
+                    if (Ofile.is_open())
+                        Ofile.close();
+                    boost::filesystem::last_write_time(file_name, std::stoi(reply_str.substr(3, pos - 3)));
+                    if (pos < reply_str.length() - 1)
+                        reply_str = std::string(reply_str, pos + 1);
+                    else
+                        reply_str = "";
+                }
+                break;
+                case 'F':   //fine comando
+                {
+                    end = true;
+                    cont = false;
+                }
+                break;
+                default: // comando non prestabilito
+                {
+                    std::string str("E: errore in formato messaggio\n");
+                    //boost::asio::write(s, boost::asio::buffer(str.c_str(), str.length()));
+                    return false; // o "return" tanto probabilmente è causato da un bug 
+                }
+                }
+            }
+        }
+        return true;
+    }
+    catch (std::exception e)
+    {
+        throw e;
     }
 }

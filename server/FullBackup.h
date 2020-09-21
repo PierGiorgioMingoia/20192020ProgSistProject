@@ -15,19 +15,31 @@ void sendString(std::string msg, tcp::socket& s);
 void sendMessageOverTheSocket(const char* msg, int size, tcp::socket& s);
 void initialMessageForEachFile(std::string file, tcp::socket& s);
 void lastMessageForEachFile(std::string file, tcp::socket& s);
-
+void send_directory(std::filesystem::path file, tcp::socket& s);
 
 
 void sendEntireUserFolder(std::string user, tcp::socket& s) {
 	try {
-		for (auto& file : std::filesystem::recursive_directory_iterator(user)) {
-			sendFile(file.path(), s);
+		for (auto& file : std::filesystem::recursive_directory_iterator("./" + user)) {
+			if (file.is_directory())
+			{
+				if (std::filesystem::is_empty(file.path()))
+					send_directory(file.path().string(),s);
+			}
+			else
+				sendFile(file.path(), s);
 		}
 	}
 	catch (std::exception& e) {
 		std::cerr << "Exception in send file: " << e.what() << "\n";
 		throw;
 	}
+}
+
+void send_directory(std::filesystem::path file, tcp::socket& s)
+{
+	sendString(std::string("D: ").append(file.string()).append("\n"), s);
+	return;
 }
 
 void sendFile(std::filesystem::path file, tcp::socket& s) {

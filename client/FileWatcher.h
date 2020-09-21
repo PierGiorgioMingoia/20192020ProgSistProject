@@ -34,7 +34,18 @@ public:
 	FileWatcher(std::string path_to_watch, std::chrono::duration<int, std::milli> delay, tcp::socket& s, std::string serialized_data_struct) :
 		path_to_watch{ path_to_watch }, delay{ delay }, s{ &s } 
 	{
-		deserialize_map(paths_, serialized_data_struct);
+		if (serialized_data_struct.size() == 1)
+		{
+			if (serialized_data_struct == std::string("-"))
+			{
+				for (auto& file : std::filesystem::recursive_directory_iterator(path_to_watch)) {
+					paths_[file.path().string()] = boost::filesystem::last_write_time(file.path().string());
+
+				}
+			}
+		}
+		else
+			deserialize_map(paths_, serialized_data_struct);
 	}
 
 	// Monitor "path_to_watch" for changes and in case of a change execute the user supplied "action" function
@@ -107,8 +118,7 @@ private:
 		std::stringstream ss(str);
 		std::size_t pos;
 		int i = 0;
-		if (str.size() == 1)
-			return 0;
+		
 		while (std::getline(ss, pair, '|'))
 		{
 			pos = pair.find(":");
