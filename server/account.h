@@ -3,6 +3,8 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <vector>
+#include <algorithm>
 #include <boost/functional/hash.hpp>
 
 
@@ -79,6 +81,31 @@ bool registrationOfUser(std::string userAndPassword, std::map<std::string, int>&
 	std::string username, password;
 	std::string delimiter = "|";
 	username = userAndPassword.substr(0, userAndPassword.find(delimiter));
-	password = userAndPassword.substr(userAndPassword.find(delimiter)+1, userAndPassword.length());
+	password = userAndPassword.substr(userAndPassword.find(delimiter) + 1, userAndPassword.length());
 	return createNewAccount(username, password, accounts, filePath);
 }
+
+bool checkIfAlreadyLoggedIn(std::string user, std::vector<std::string>& activeAccounts) {
+	auto it = std::find(activeAccounts.begin(), activeAccounts.end(), user);
+	if (it != activeAccounts.end())
+		return true;
+	else
+		return false;
+}
+
+void debugPrintAllActiveAccount(std::vector<std::string> path) {
+	for (std::vector<std::string>::const_iterator i = path.begin(); i != path.end(); ++i)
+		std::cout << *i << ' ';
+}
+
+void insertInActiveAccounts(std::string user, std::vector<std::string>& activeAccounts) {
+	activeAccounts.push_back(user);
+}
+
+void removeFromActiveAccounts(std::string user, std::vector<std::string>& activeAccounts) {
+	auto it = std::find(activeAccounts.begin(), activeAccounts.end(), user);
+	if (it != activeAccounts.end())
+		activeAccounts.erase(it);
+}
+
+

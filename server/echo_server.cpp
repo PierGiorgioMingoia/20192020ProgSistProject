@@ -13,6 +13,7 @@
 #include <map>
 #include <filesystem>
 #include <chrono>
+#include <vector>
 #include <boost/bind/bind.hpp>
 #include <boost/asio.hpp>
 #include "FileWatcher.h"
@@ -26,6 +27,7 @@ using boost::asio::ip::tcp;
 
 std::string accountsFilePaths = "accounts.txt";
 std::map<std::string, int> accountsMapNamePassword = readAndStoreAccounts(accountsFilePaths);
+std::vector<std::string> activeAccounts;
 
 class session
 {
@@ -62,7 +64,7 @@ public:
 						socket_.write_some(boost::asio::buffer(ret_user.c_str(), ret_user.size()));
 					}
 					else {
-						std::string ret_user = "E: Account già esistente\n";
+						std::string ret_user = "E: Account esistente\n";
 						socket_.write_some(boost::asio::buffer(ret_user.c_str(), ret_user.size()));
 					}
 					continue; // finita la registrazione (bene o male) attendo di nuovo un messaggio (RGS o I) dal client
@@ -91,7 +93,7 @@ public:
 				{
 					//controllo se la pw è giusta
 					std::string password = std::string(data_, reply_length - 1).substr(3);
-					if (checkNameAndPassword(user_, password, accountsMapNamePassword)) {	//se la pw è corretta
+					if (checkNameAndPassword(user_, password, accountsMapNamePassword) && !checkIfAlreadyLoggedIn(user_, activeAccounts)) {	//se la pw è corretta
 
 						if (std::filesystem::exists("./" + user_))
 						{
@@ -108,6 +110,7 @@ public:
 							std::filesystem::create_directory("./" + user_);
 							socket_.write_some(boost::asio::buffer(new_user.c_str(), new_user.size()));
 						}
+						insertInActiveAccounts(user_, activeAccounts);
 						login = true; // fase login terminata, si può accedere alla fase successiva 
 					}
 					else // pw errata
@@ -129,7 +132,7 @@ public:
 
 
 			// questi tre si possono mettere all'inizio, sono qui perchè sono più vicini a dove vengono utilizzati
-			std::string reply_str = "";				
+			std::string reply_str = "";
 			std::filesystem::path p;
 			bool cont = true;
 
@@ -317,7 +320,7 @@ public:
 							break;
 						}
 						sendEntireUserFolder(user_, socket_);
-						boost::asio::write(socket_, boost::asio::buffer("F: \n",4));
+						boost::asio::write(socket_, boost::asio::buffer("F: \n", 4));
 						if (pos < reply_str.length() - 1)
 							reply_str = std::string(reply_str, pos + 1);
 						else
@@ -351,7 +354,9 @@ public:
 
 			}
 
-			std::cerr << e.what();
+			//std::cerr << e.what();
+			removeFromActiveAccounts(user_, activeAccounts);
+			std::cout << user_ << " ha effettuato la disconnessione" << std::endl;
 			return;
 		}
 
