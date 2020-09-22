@@ -351,7 +351,8 @@ public:
 
 			}
 
-			std::cerr << e.what();
+			//std::cerr << e.what();
+			std::cout << user_ << " ha effettuato la disconnessione" << std::endl;
 			return;
 		}
 
