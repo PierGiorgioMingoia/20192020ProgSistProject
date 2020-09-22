@@ -1,5 +1,7 @@
 1)Testo riordinato e corretto (client e server)
 2)Selezionare server di Backup
-3)Download intera cartella
 4)Deployment dell'applicazione 
-5)Warinigs
+5)Warnings
+6)funzione di hash
+7)controllo account multipli
+8)
