@@ -355,7 +355,10 @@ public:
 			}
 
 			//std::cerr << e.what();
+<<<<<<< HEAD
 			removeFromActiveAccounts(user_, activeAccounts);
+=======
+>>>>>>> 4b348aeddb8aa62e9ce6655746a5155427a6d043
 			std::cout << user_ << " ha effettuato la disconnessione" << std::endl;
 			return;
 		}
