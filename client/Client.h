@@ -42,14 +42,61 @@ class Client
 private:
     std::string ip_addr, port;
     boost::asio::io_context io_context;
+    bool cmd_args;
+
+    void get_args()
+    {
+        bool correct = false;
+        while (!correct)
+        {
+            std::string tmp;
+            std::cout << "inserire indirizzo IPv4 server: ";
+            std::cin >> tmp;
+            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); //flush di cin
+
+            boost::system::error_code ec;
+            boost::asio::ip::address::from_string(tmp, ec);
+            if (ec)
+            {
+                std::cout << std::endl << "indirizzo IPv4 non valido [xxx.xxx.xxx.xxx]" << std::endl;
+                continue;
+            }
+            correct = true;
+            ip_addr = tmp;
+        }
+
+        correct = false;
+        while (!correct)
+        {
+            std::string tmp;
+            std::cout << "inserire porta server: ";
+            std::cin >> tmp;
+            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); //flush di cin
+
+            if (std::stoi(tmp)<1 || std::stoi(tmp)>65535)
+            {
+                std::cout << std::endl << "porta non valida [1-65535]" << std::endl;
+                continue;
+            }
+            correct = true;
+            port = tmp;
+        }
+
+    }
 
 public:
+    Client() { cmd_args = false; }
     Client(char* ip, char* port) : ip_addr(ip), port(port)
     {
+        cmd_args = true;
         //magari mettere controlli se ip e porta sono validi 
     }
     void run()
     {
+        if (!cmd_args)
+        {
+            get_args();
+        }
         // creazione connessione
         tcp::resolver resolver(io_context);
         tcp::resolver::results_type endpoints = resolver.resolve(tcp::v4(), ip_addr, port);
@@ -293,10 +340,10 @@ void reconnect(tcp::socket* s, tcp::resolver::results_type* endpoints, std::stri
             lk.unlock();
             try                                                                         //
             {                                                                           //
+                boost::asio::connect(*s, *endpoints);                                   // prova a connettersi, tutto ciò che c'è dopo viene saltato in caso di fallimento perchè si salta al catch dell'errore
                 std::unique_lock<std::mutex> lk_out(cout_access);                       // stampa di debug
                 std::cout << "Riconnessione avvenuta con successo" << std::endl;          // stampa di debug
                 lk_out.unlock();                                                        // stampa di debug
-                boost::asio::connect(*s, *endpoints);                                   // prova a connettersi, tutto ciò che c'è dopo viene saltato in caso di fallimento perchè si salta al catch dell'errore
                 login(*s, *user, *pw);
 
                 //check se il login è andato bene
@@ -409,7 +456,7 @@ int login(tcp::socket& s, std::string& user, std::string& pw, bool first_time)
                 std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); //flush di cin
                 if (c != 'l' && c != 'r')                                                           // input errato ricomincia da capo
                 {
-                    std::cout << "l -> login, r -> registrazione";
+                    std::cout << std::endl << "l -> login, r -> registrazione";
                     continue;
                 }
 
@@ -519,12 +566,12 @@ std::string backup_or_sync(tcp::socket& s,std::string user)
 
         while (!correct)
         {
-            cout << "effettuare il download del contenuto corrente? [s/n]: " << endl;
+            cout << "effettuare il download del contenuto corrente? [s/n]: ";
             std::cin >> c;
             std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); //flush di cin
             if (c != 's' && c != 'n')                                                           // input errato ricomincia da capo
             {
-                std::cout << "s -> download, n -> continua senza download";
+                std::cout << std::endl << "s -> download, n -> continua senza download";
                 continue;
             }
             else
