@@ -43,10 +43,10 @@ int computeHashPassword(std::string password) {
 		c = buf[i];
 		sum += sum * vett[n] + c * vett[(n * size) % 13] + (n + size % (i + 1)) * vett[c % 13];
 		n = (n + c + sum) % 13;
-		sum = sum * 999983 + c * 37199; //totalmente a caso, sono 2 numeri primi random che danno una buona distribuzione dei risultati
+		sum = sum * 999983 + c * 37199; 
 	}
-	sum = abs(sum); // voglio solo
-	sum = sum % div;//
+	sum = abs(sum); 
+	sum = sum % div;
 	return int(sum);
 }
 
@@ -60,7 +60,7 @@ bool checkNameAndPassword(std::string name, std::string password, const std::map
 		}
 		else
 		{
-			std::cout << "Tentativo di accesso di " << name << " con password errata" << std::endl;
+			std::cout << " Tentativo di accesso di " << name << " con password errata" << std::endl;
 			return false;
 
 		}
