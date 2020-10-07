@@ -148,6 +148,7 @@
     <ClCompile Include="echo_server.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="checksum.h" />
     <ClInclude Include="FileWatcher.h" />
     <ClInclude Include="backup.h" />
     <ClInclude Include="account.h" />
