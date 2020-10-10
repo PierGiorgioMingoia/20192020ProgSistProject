@@ -425,6 +425,7 @@ int main(int argc, char* argv[])
 
 		using namespace std; // For atoi.
 		server s(io_context, atoi(argv[1]));
+		std::cout << "Server di backup avviato" << std::endl;
 		s.run();
 	}
 	catch (std::exception& e)

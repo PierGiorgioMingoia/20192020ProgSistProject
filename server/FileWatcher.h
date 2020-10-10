@@ -41,44 +41,7 @@ public:
 	{
 		deserialize_map(paths_, serialized_data_struct);
 	}
-	/*
-	// Monitor "path_to_watch" for changes and in case of a change execute the user supplied "action" function
-	void start(const std::function<void(std::string,std::string, FileStatus, tcp::socket&)>& action) {
-		while (running_) {
-			// Wait for "delay" milliseconds
-			std::this_thread::sleep_for(delay);
-
-			auto it = paths_.begin();
-			while (it != paths_.end()) {
-				if (!std::filesystem::exists(it->first)) {
-					action(it->first, path_to_watch, FileStatus::erased, *s);
-					it = paths_.erase(it);
-				}
-				else {
-					it++;
-				}
-			}
-
-			// Check if a file was created or modified
-			for (auto& file : std::filesystem::recursive_directory_iterator(path_to_watch)) {
-				auto current_file_last_write_time = boost::filesystem::last_write_time(file.path().string());
-
-				// File creation
-				if (!contains(file.path().string())) {
-					paths_[file.path().string()] = current_file_last_write_time;
-					action(file.path().string(), path_to_watch, FileStatus::created,*s);
-					// File modification
-				}
-				else {
-					if (paths_[file.path().string()] != current_file_last_write_time) {
-						paths_[file.path().string()] = current_file_last_write_time;
-						action(file.path().string(), path_to_watch, FileStatus::modified,*s);
-					}
-				}
-			}
-		}
-	}
-	*/
+	
 	std::string get_folder_data()
 	{
 		std::string str;
