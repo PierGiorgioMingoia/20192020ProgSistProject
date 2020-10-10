@@ -15,8 +15,6 @@ int checksum(std::string fileName) {
 		sum += word;
 		word = 0;
 	}
-
-	sum += word;
 	return sum;
 
 }

@@ -106,7 +106,7 @@ public:
 						{
 							//caso utente registrato ma al primo accesso
 							//...
-							std::string new_user = "N: Login effettuato, crezione della cartella \n";
+							std::string new_user = "N: Login effettuato, creazione della cartella \n";
 							std::filesystem::create_directory("./" + user_);
 							socket_.write_some(boost::asio::buffer(new_user.c_str(), new_user.size()));
 						}
@@ -201,7 +201,8 @@ public:
 						std::string realFileName = reply_str.substr(5, pos - 5);
 
 						// copia di backup
-						openBackUpFiles.insert(std::pair<std::string, BackUpFile>(file_name, createBackUpFile(user_, file_name, realFileName, std::filesystem::last_write_time(file_name))));
+						if (boost::filesystem::exists(file_name)) // per un errore il server potrebbe non avere la copia originale
+							openBackUpFiles.insert(std::pair<std::string, BackUpFile>(file_name, createBackUpFile(user_, file_name, realFileName, std::filesystem::last_write_time(file_name))));
 
 						Ofile.open(file_name, std::ofstream::binary);                          //C ed M sono in pratica la stessa cosa
 
