@@ -154,6 +154,7 @@ public:
                             msg_buffer.insert_or_assign(relative_path, std::string("D"));         // è necessario? insomma una cartella vuota non ha molta utilità
                             lk.unlock();        */                                                //
                             send(msg, s);                                                       //                                    //
+                            send(std::string("U: ").append(std::to_string(boost::filesystem::last_write_time(path_to_watch))).append("\n"), s);
                             send(std::string("F: ").append(relative_path).append("\n"), s);     // 
                         }
                         return;
@@ -296,7 +297,13 @@ void receive(tcp::socket* s)                                                    
                     std::cout << "Reply is: ";                                      // stampa per debug
                     std::cout << token;                                             // stampa per debug
                     std::cout << "\n";                                              // stampa per debug
-                }                                                                   //
+                }
+                else if (token[0] == 'E')                                                
+                {                                                               
+                    std::unique_lock<std::mutex> lk_out(cout_access);               // stampa per debug
+                    std::cout << token;                                             // stampa per debug
+                    std::cout << "\n";                                              // stampa per debug
+                }//
             }                                                                       //
         }                                                                           //
                                                                                     //

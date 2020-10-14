@@ -151,7 +151,7 @@ public:
 				{
 					switch (reply_str[0])
 					{
-					case 'C':   //crea
+					case 'C':   //crea file
 					{
 						int pos = reply_str.find('\n');
 						if (pos == std::string::npos)
@@ -283,7 +283,13 @@ public:
 						}
 						if (Ofile.is_open())
 							Ofile.close();
-						boost::filesystem::last_write_time(file_name, std::stoi(reply_str.substr(3, pos - 3)));
+						if (boost::filesystem::exists(file_name))
+							boost::filesystem::last_write_time(file_name, std::stoi(reply_str.substr(3, pos - 3)));
+						else
+						{
+							std::string err_msg = "E: file non presente " + file_name + "\n";
+							socket_.write_some(boost::asio::buffer(err_msg.c_str(), err_msg.size()));
+						}
 						if (pos < reply_str.length() - 1)
 							reply_str = std::string(reply_str, pos + 1);
 						else

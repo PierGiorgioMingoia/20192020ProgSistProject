@@ -73,18 +73,19 @@ public:
 			for (auto& file : std::filesystem::recursive_directory_iterator(path_to_watch)) {
 				int fileCheckSum = 0;
 				auto current_file_last_write_time = boost::filesystem::last_write_time(file.path().string());
-				if (checkSumCounter == 0) {
-					fileCheckSum = checksum(file.path().string());
-				}
+				
 
 				// File creation
 				if (!contains(file.path().string())) {
 					paths_[file.path().string()].first = current_file_last_write_time;
-					paths_[file.path().string()].second =  fileCheckSum;
+					paths_[file.path().string()].second =  0;
 					action(file.path().string(), path_to_watch, FileStatus::created, *s);
 					// File modification
 				}
 				else {
+					if (checkSumCounter == 0) {
+						fileCheckSum = checksum(file.path().string());
+					}
 
 					if (checkSumCounter == 0) {
 						if (paths_[file.path().string()].first != current_file_last_write_time || paths_[file.path().string()].second != fileCheckSum) {
