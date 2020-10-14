@@ -70,8 +70,8 @@ public:
 			}
 
 			// Check if a file was created or modified
+			int fileCheckSum = 0;
 			for (auto& file : std::filesystem::recursive_directory_iterator(path_to_watch)) {
-				int fileCheckSum = 0;
 				auto current_file_last_write_time = boost::filesystem::last_write_time(file.path().string());
 				
 
@@ -83,7 +83,7 @@ public:
 					// File modification
 				}
 				else {
-					if (checkSumCounter == 0) {
+					if (checkSumCounter == 0 && !boost::filesystem::is_directory(file.path().string())) {
 						fileCheckSum = checksum(file.path().string());
 					}
 
