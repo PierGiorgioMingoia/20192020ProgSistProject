@@ -1,6 +1,6 @@
 #pragma once
 
-#include "FileWatcher.h""
+#include "FileWatcher.h"
 #include <boost/asio.hpp>
 #include <string>
 #include <iostream>
@@ -194,8 +194,8 @@ public:
                                                                                         //
                                                                                         //
                 case FileStatus::erased:                                                //
-                    //std::cout << "E: " << path_to_watch << '\n';                      //
-                    msg.append("E: " + relative_path + '\n');                           // comando E
+                    //std::cout << "X: " << path_to_watch << '\n';                      //
+                    msg.append("X: " + relative_path + '\n');                           // comando X
                     lk.lock();                                                          //
                     msg_buffer.insert_or_assign(relative_path, std::string("E"));       //
                     lk.unlock();                                                        //
