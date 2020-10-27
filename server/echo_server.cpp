@@ -212,7 +212,7 @@ public:
 							reply_str = "";
 					}
 					break;
-					case 'E':   //elimina
+					case 'X':   //elimina
 					{
 						int pos = reply_str.find('\n');
 						if (pos == std::string::npos)

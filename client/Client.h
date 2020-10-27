@@ -195,7 +195,7 @@ public:
                                                                                         //
                 case FileStatus::erased:                                                //
                     //std::cout << "E: " << path_to_watch << '\n';                      //
-                    msg.append("E: " + relative_path + '\n');                           // comando E
+                    msg.append("X: " + relative_path + '\n');                           // comando E
                     lk.lock();                                                          //
                     msg_buffer.insert_or_assign(relative_path, std::string("E"));       //
                     lk.unlock();                                                        //
@@ -298,7 +298,7 @@ void receive(tcp::socket* s)                                                    
                     std::cout << token;                                             // stampa per debug
                     std::cout << "\n";                                              // stampa per debug
                 }
-                else if (token[0] == 'E')                                                
+                else if (token[0] == 'X')                                                
                 {                                                               
                     std::unique_lock<std::mutex> lk_out(cout_access);               // stampa per debug
                     std::cout << token;                                             // stampa per debug
