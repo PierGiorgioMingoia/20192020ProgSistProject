@@ -28,6 +28,9 @@ std::string accountsFilePaths = "accounts.txt";
 std::map<std::string, int> accountsMapNamePassword = readAndStoreAccounts(accountsFilePaths);
 std::vector<std::string> activeAccounts;
 
+std::mutex account_access;                                                         // mutex per l'accesso al vettore activeAccounts
+
+
 class session
 {
 public:
@@ -92,6 +95,7 @@ public:
 				{
 					//controllo se la pw è giusta
 					std::string password = std::string(data_, reply_length - 1).substr(3);
+					std::unique_lock<std::mutex> lk_acc(account_access);                        //
 					if (checkNameAndPassword(user_, password, accountsMapNamePassword) && !checkIfAlreadyLoggedIn(user_, activeAccounts)) {	//se la pw è corretta
 
 						if (std::filesystem::exists("./" + user_))
@@ -118,6 +122,7 @@ public:
 						socket_.write_some(boost::asio::buffer(loginError.c_str(), loginError.size()));
 						continue; // password errata probabilmente, aspetto che il client riprovi con nuovi dati
 					}
+					lk_acc.unlock();
 				}
 				else
 				{
