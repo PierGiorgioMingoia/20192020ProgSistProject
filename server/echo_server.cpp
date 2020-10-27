@@ -14,7 +14,6 @@
 #include <filesystem>
 #include <chrono>
 #include <vector>
-#include <boost/bind/bind.hpp>
 #include <boost/asio.hpp>
 #include "FileWatcher.h"
 #include "backup.h"
