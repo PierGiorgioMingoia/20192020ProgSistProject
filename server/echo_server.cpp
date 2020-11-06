@@ -314,7 +314,7 @@ public:
 							cont = false;
 							break;
 						}
-						boost::asio::write(socket_, boost::asio::buffer(reply_str.c_str(), pos));
+						boost::asio::write(socket_, boost::asio::buffer(reply_str.c_str(), pos+1));
 						if (pos < reply_str.length() - 1)
 							reply_str = std::string(reply_str, pos + 1);
 						else
@@ -332,6 +332,25 @@ public:
 						}
 						sendEntireUserFolder(user_, socket_);
 						boost::asio::write(socket_, boost::asio::buffer("F: \n", 4));
+						if (pos < reply_str.length() - 1)
+							reply_str = std::string(reply_str, pos + 1);
+						else
+							reply_str = "";
+					}
+					break;
+
+					case 'Q':
+					{
+						int pos = reply_str.find('\n');
+						if (pos == std::string::npos)
+						{
+							cont = false;
+							break;
+						}
+						file_name = "./" + user_ + "\\" + reply_str.substr(5, pos - 5);
+						std::string response = reply_str.substr(0, pos) + '|' + std::to_string(checksum(file_name))+'\n';
+						boost::asio::write(socket_, boost::asio::buffer(response.c_str(), response.length()));
+
 						if (pos < reply_str.length() - 1)
 							reply_str = std::string(reply_str, pos + 1);
 						else

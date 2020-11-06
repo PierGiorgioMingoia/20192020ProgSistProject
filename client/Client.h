@@ -11,7 +11,7 @@ using boost::asio::ip::tcp;
 
 //-------------------------------definizione funzioni---------------------------------------------
 
-void receive(tcp::socket* s);           
+void receive(tcp::socket* s, std::string* user, std::string* pw);
 void reconnect(tcp::socket* s, tcp::resolver::results_type* endpoints, std::string* user, std::string* pw);
 void send_file(std::string path, tcp::socket& s);
 int login(tcp::socket& s, std::string& user, std::string& pw, bool first_time = false);
@@ -31,6 +31,7 @@ std::condition_variable connect_var;                                            
 int DISCONNECTED = 0;                                                           // indica se attualmente il client è connesso al server
 int REPORTED = 0;                                                               // indicca se un errore della connessione è già stato riportato da qualcuno
 
+std::mutex socket_write_access;
 std::mutex flag_access;                                                         // mutex per l'accesso a DISCONNECTED
 std::mutex cout_access;                                                         // mutex per l'accesso alla stampa, è utile per non mischiare i messaggi
 std::mutex buffer_access;                                                       // mutex per l'accesso al buffer dei comandi
@@ -117,7 +118,7 @@ public:
         if (log == 2)               //utente nuovo
             data = "|";
 
-        std::thread listener(receive, &s);
+        std::thread listener(receive, &s, &user, &pw);
         std::thread reconnecter(reconnect, &s, &endpoints, &user, &pw);
 
         // Create a FileWatcher instance that will check the current folder for changes every 5 seconds
@@ -140,6 +141,9 @@ public:
                 std::unique_lock<std::mutex> lk(buffer_access);                         //
                 while (msg_buffer.size() >= BUFFER_SIZE) buffer_var.wait(lk);             // controlla che il buffer non sia pieno, altrimenti aspetta
                 lk.unlock();                                                            //
+
+                std::unique_lock<std::mutex> lk_sk(socket_write_access);
+                lk_sk.unlock();
                                                                                         //
                 switch (status) {                                                       //
                                                                                         //
@@ -153,9 +157,11 @@ public:
                             /*lk.lock();                                                          //
                             msg_buffer.insert_or_assign(relative_path, std::string("D"));         // è necessario? insomma una cartella vuota non ha molta utilità
                             lk.unlock();        */                                                //
+                            lk_sk.lock();
                             send(msg, s);                                                       //                                    //
                             send(std::string("U: ").append(std::to_string(boost::filesystem::last_write_time(path_to_watch))).append("\n"), s);
                             send(std::string("F: ").append(relative_path).append("\n"), s);     // 
+                            lk_sk.unlock();
                         }
                         return;
                     }
@@ -169,15 +175,18 @@ public:
                                                                                         // es prima M poi E -> perchè rimandare delle modifiche di un file che poi dovrò cancellare?
                                                                                         // es prima M poi M -> mando direttamente l'ultima versione e risparmio tempo
                     lk.unlock();                                                        //
+                    lk_sk.lock();                    
                     send(msg, s);                                                       //
                     send_file(path_to_watch, s);                                        //
                     send(std::string("U: ").append(std::to_string(boost::filesystem::last_write_time(path_to_watch))).append("\n"), s);
                     send(std::string("F: ").append(relative_path).append("\n"), s);     // 
+                    lk_sk.unlock();
                     break;                                                              //
                                                                                         //
                                                                                         //
                 case FileStatus::modified:                                              //
                     //std::cout << "M: " << path_to_watch << '\n';                      //
+                {
                     if (std::filesystem::is_directory(std::filesystem::path(path_to_watch)))
                     {
                         return;
@@ -186,21 +195,43 @@ public:
                     lk.lock();                                                          //
                     msg_buffer.insert_or_assign(relative_path, std::string("M"));       //
                     lk.unlock();                                                        //
+                    lk_sk.lock();
                     send(msg, s);                                                       //
                     send_file(path_to_watch, s);                                        //
                     send(std::string("U: ").append(std::to_string(boost::filesystem::last_write_time(path_to_watch))).append("\n"), s);
-                    send(std::string("F: ").append(relative_path).append("\n"), s);     // 
-                    break;                                                              //
+                    send(std::string("F: ").append(relative_path).append("\n"), s);     //
+                    lk_sk.unlock();
+                }
+                break;                                                            //
                                                                                         //
-                                                                                        //
+                case FileStatus::maybefied:
+                {
+                    if (std::filesystem::is_directory(std::filesystem::path(path_to_watch)))
+                    {
+                        return;
+                    }
+                    msg.append("Q: " + relative_path + '\n');                           // comando M
+                    lk.lock();                                                          //
+                    msg_buffer.insert_or_assign(relative_path , std::string("Q") + '|' + std::to_string(checksum(path_to_watch)));       //
+                    lk.unlock();
+
+                    lk_sk.lock();
+                    send(msg, s);
+                    lk_sk.unlock();
+                }
+                break;                                                                   //
                 case FileStatus::erased:                                                //
                     //std::cout << "X: " << path_to_watch << '\n';                      //
                     msg.append("X: " + relative_path + '\n');                           // comando X
+
                     lk.lock();                                                          //
                     msg_buffer.insert_or_assign(relative_path, std::string("E"));       //
-                    lk.unlock();                                                        //
+                    lk.unlock(); 
+                    //
+                    lk_sk.lock();
                     send(msg, s);                                                       //
                     send(std::string("F: ").append(relative_path).append("\n"), s);     //
+                    lk_sk.unlock();
                                                                                         //
                     break;                                                              //
                 default:                                                                //
@@ -266,47 +297,122 @@ void send(std::string msg, tcp::socket& s)                                      
     }
 }
 
-void receive(tcp::socket* s)                                                        // funzione thread che controlla continuamente l'arrivo di nuovi messaggi
+void receive(tcp::socket* s, std::string* user, std::string* pw)                    // funzione thread che controlla continuamente l'arrivo di nuovi messaggi
 {
-
+    bool cont = true;
+    std::string reply_str;
     char reply[max_length];                                                         //    
     size_t reply_length;                                                            //
                                                                                     //
     while (1)                                                                       //
     {                                                                               //
         try                                                                         //
-        {                                                                           //
+        {
             std::unique_lock<std::mutex> lk_dc(flag_access);                        //
             while (DISCONNECTED) connect_var.wait(lk_dc);                           // controllo se sono disconnesso: se sì aspetto di essere svegliato, altrimenti continuo
-            lk_dc.unlock();                                                         //
-            reply_length = s->read_some(boost::asio::buffer(reply, max_length));    // legge il socket. è qui che possono scattare gli errori (dato che la read è sempre attiva è più probabile che sia la read la prima funzione ad accorgersi che il server non comunica più)
-                                                                                    //
-            //case multiple lines are read as a single message                      // è possibile che più comandi vengano letti in una sola lettura, 
-            std::string reply_str(reply, reply_length), token;                        // in quel caso spezzo la stringa ottenuta e leggo i singoli comandi
-            std::stringstream ss(reply_str);                                        //
-            while (std::getline(ss, token, '\n'))                                   //
-            {                                                                       //
-                if (token[0] == 'F')                                                // se il comando è una risposta a un comando F(che sta per Fine, cioè l'ultimo di un determinato file)
-                {                                                                   // allora lo considero un acknowledge per quel comando
+            lk_dc.unlock();
+
+            do
+            {
+                reply_length = s->read_some(boost::asio::buffer(reply, max_length));
+                reply_str.append(reply, reply_length);
+
+            } while (reply_length == max_length && reply_str.length() < 2048);  //leggo fino a 2048 byte dal socket, se ce n'è meno proseguo con solo quelli letti senza aspettare 
+            cont = true;
+
+            while (reply_str.length() > 0 && cont)                                   // ogni stringa reply_str può contenere 1 o più messaggi o parti di messaggio, ma il primo byte è sempre anche il primo byte di un messaggio
+            {
+                switch (reply_str[0])
+                {
+                case 'F':
+                {
+                    int pos = reply_str.find('\n');
+                    if (pos == std::string::npos)
+                    {
+                        cont = false;
+                        break;
+                    }
+
                     std::unique_lock<std::mutex> lk(buffer_access);                 //
-                    msg_buffer.erase(token.substr(3));                              // elimino il comando dal buffer dato che ho ricevuto l'ack
+                    msg_buffer.erase(reply_str.substr(3, pos - 3));                    // elimino il comando dal buffer dato che ho ricevuto l'ack
                     if (msg_buffer.size() == 4) buffer_var.notify_all();            // se prima il buffer era pieno(e di conseguenza ora non lo è più) noticfico che posso riprendere a mandare messaggi
                     lk.unlock();                                                    //
                                                                                     //
-                    std::unique_lock<std::mutex> lk_out(cout_access);                   // stampa per debug
-                    std::cout << "Reply is: ";                                      // stampa per debug
-                    std::cout << token;                                             // stampa per debug
-                    std::cout << "\n";                                              // stampa per debug
-                }
-                else if (token[0] == 'E')                                                
-                {                                                               
                     std::unique_lock<std::mutex> lk_out(cout_access);               // stampa per debug
-                    std::cout << token;                                             // stampa per debug
-                    std::cout << "\n";                                              // stampa per debug
-                }//
-            }                                                                       //
-        }                                                                           //
-                                                                                    //
+                    std::cout << "Reply is: ";                                      // stampa per debug
+                    std::cout << reply_str.substr(0, pos);                          // stampa per debug
+                    std::cout << "\n";
+
+                    if (pos < reply_str.length() - 1)
+                        reply_str = std::string(reply_str, pos + 1);
+                    else
+                        reply_str = "";
+
+                }
+                break;
+                case 'E':
+                {
+                    int pos = reply_str.find('\n');
+                    if (pos == std::string::npos)
+                    {
+                        cont = false;
+                        break;
+                    }
+
+                    std::unique_lock<std::mutex> lk_out(cout_access);               // stampa per debug
+                    std::cout << reply_str.substr(0, pos);                                              // stampa per debug
+                    std::cout << "\n";
+
+                    if (pos < reply_str.length() - 1)
+                        reply_str = std::string(reply_str, pos + 1);
+                    else
+                        reply_str = "";
+                }
+                break;
+                case 'Q':
+                {
+                    int pos = reply_str.find('\n');
+                    if (pos == std::string::npos)
+                    {
+                        cont = false;
+                        break;
+                    }
+                    int pos_bar = reply_str.find('|');
+
+                    auto couple = msg_buffer.find(reply_str.substr(3, pos_bar - 3));
+                    if ((couple->second.substr(2).compare(reply_str.substr(pos_bar + 1, pos - pos_bar))))
+                    {
+                        std::unique_lock<std::mutex> lk(buffer_access);                 //
+                        msg_buffer.erase(reply_str.substr(3, pos_bar - 3));                    // elimino il comando dal buffer dato che ho ricevuto l'ack
+                        if (msg_buffer.size() == 4) buffer_var.notify_all();            // se prima il buffer era pieno(e di conseguenza ora non lo è più) noticfico che posso riprendere a mandare messaggi
+                        lk.unlock();
+                    }
+                    else
+                    {
+                        std::unique_lock<std::mutex> lk(buffer_access);                 //
+                        msg_buffer.erase(reply_str.substr(3, pos_bar - 3));                    // elimino il comando dal buffer dato che ho ricevuto l'ack
+                        msg_buffer.insert_or_assign(reply_str.substr(5, pos_bar - 5), std::string("M"));       //
+                        lk.unlock();
+                        //
+                        std::unique_lock<std::mutex> lk_sk(socket_write_access);
+                        send("M: " + reply_str.substr(3, pos_bar - 3), *s);
+                        std::string path_to_watch = "./" + *user + reply_str.substr(4, pos_bar - 4);//
+                        send_file(path_to_watch, *s);                                        //
+                        send(std::string("U: ").append(std::to_string(boost::filesystem::last_write_time(path_to_watch))).append("\n"), *s);
+                        send(std::string("F: ").append(reply_str.substr(3, pos_bar - 3)).append("\n"), *s);     //
+                        lk_sk.unlock();
+                    }
+                    if (pos < reply_str.length() - 1)
+                        reply_str = std::string(reply_str, pos + 1);
+                    else
+                        reply_str = "";
+                }
+                default:
+                break;
+                }
+                //
+            }
+        }//                                                                            //
         catch (std::exception& e)                                                   //
         {
             int first_to_report = 0;                                                         // 
@@ -328,12 +434,8 @@ void receive(tcp::socket* s)                                                    
                 connect_var.notify_all();                                               // qui sveglio il thread che se ne occupa
             }
         }                                                                           //
-    }                                                                               //
-                                                                                    //
-}                                                                                   //
-                                                                                    //
-
-
+    }
+}
                                                                                     //
 void reconnect(tcp::socket* s, tcp::resolver::results_type* endpoints, std::string* user, std::string* pw)
 {                                                                                   //
@@ -362,12 +464,18 @@ void reconnect(tcp::socket* s, tcp::resolver::results_type* endpoints, std::stri
                 std::unique_lock<std::mutex> lk_buf(buffer_access);                     //
                 for (std::map<std::string, std::string>::iterator it = msg_buffer.begin(); it != msg_buffer.end(); it++)
                 {                                                                       // per tutti i comandi nel buffer
-                    msg.append(it->second + ": " + it->first + '\n');
+
+                    msg.append(it->second[0] + ": " + it->first + '\n');
                     send(msg, *s);                                                      // li rimando
-                    send_file("./" + *user + it->first.substr(1), *s);                  // rimando il contenuto del file. da notare che se faccio il send di un file eliminato non mando nulla
-                    if (it->second.compare("E") != 0)
-                        send(std::string("U: ").append(std::to_string(boost::filesystem::last_write_time("./" + *user + it->first.substr(1)))).append("\n"), *s);
-                    send(std::string("F: ").append(it->first).append("\n"), *s);
+                    if (it->second[0] != 'Q')
+                    {
+                        if (it->second[0] != 'X')
+                        {
+                            send_file("./" + *user + it->first.substr(1), *s);                  // rimando il contenuto del file. da notare che se faccio il send di un file eliminato non mando nulla
+                            send(std::string("U: ").append(std::to_string(boost::filesystem::last_write_time("./" + *user + it->first.substr(1)))).append("\n"), *s);
+                        }
+                        send(std::string("F: ").append(it->first).append("\n"), *s);
+                    }
                 }                                                                       //
                 lk_buf.unlock();                                                        //
                                                                                         // terminata la funzione di riconnessione

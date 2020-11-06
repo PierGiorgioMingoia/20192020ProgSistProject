@@ -14,7 +14,7 @@
 using boost::asio::ip::tcp;
 
 // Define available file changes
-enum class FileStatus { created, modified, erased };
+enum class FileStatus { created, modified, erased,maybefied };
 
 class FileWatcher {
 public:
@@ -28,9 +28,7 @@ public:
 		path_to_watch{ path_to_watch }, delay{ delay }, s{ &s }
 	{
 		for (auto& file : std::filesystem::recursive_directory_iterator(path_to_watch)) {
-			paths_[file.path().string()].first = boost::filesystem::last_write_time(file.path().string());
-			paths_[file.path().string()].second = checksum(file.path().string());
-
+			paths_[file.path().string()] = boost::filesystem::last_write_time(file.path().string());
 		}
 	}
 	// Costruttore da usare per forzare il file watcher ad avere una certa struttura dati iniziale, senza costruirla guardando la cartella co
@@ -42,8 +40,7 @@ public:
 			if (serialized_data_struct == std::string("-"))
 			{
 				for (auto& file : std::filesystem::recursive_directory_iterator(path_to_watch)) {
-					paths_[file.path().string()].first = boost::filesystem::last_write_time(file.path().string());
-					paths_[file.path().string()].second = checksum(file.path().string());
+					paths_[file.path().string()]= boost::filesystem::last_write_time(file.path().string());
 				}
 			}
 		}
@@ -53,7 +50,7 @@ public:
 
 	// Monitor "path_to_watch" for changes and in case of a change execute the user supplied "action" function
 	void start(const std::function<void(std::string, std::string, FileStatus, tcp::socket&)>& action) {
-		int checkSumCounter = 0;
+		bool first_round = true;
 		while (running_) {
 			// Wait for "delay" milliseconds
 			std::this_thread::sleep_for(delay);
@@ -71,36 +68,36 @@ public:
 
 			// Check if a file was created or modified
 			int fileCheckSum = 0;
-			for (auto& file : std::filesystem::recursive_directory_iterator(path_to_watch)) {
+			for (auto& file : std::filesystem::recursive_directory_iterator(path_to_watch))
+			{
 				auto current_file_last_write_time = boost::filesystem::last_write_time(file.path().string());
-				
+
 
 				// File creation
-				if (!contains(file.path().string())) {
-					paths_[file.path().string()].first = current_file_last_write_time;
-					paths_[file.path().string()].second =  0;
+				if (!contains(file.path().string()))
+				{
+					paths_[file.path().string()] = current_file_last_write_time;
 					action(file.path().string(), path_to_watch, FileStatus::created, *s);
 					// File modification
 				}
-				else {
-					if (checkSumCounter == 0 && !boost::filesystem::is_directory(file.path().string())) {
-						fileCheckSum = checksum(file.path().string());
-					}
-
-					if (checkSumCounter == 0) {
-						if (paths_[file.path().string()].first != current_file_last_write_time || paths_[file.path().string()].second != fileCheckSum) {
-							paths_[file.path().string()].first = current_file_last_write_time;
-							paths_[file.path().string()].second = fileCheckSum;
-							action(file.path().string(), path_to_watch, FileStatus::modified, *s);
-						}
-					}
-					else if(paths_[file.path().string()].first != current_file_last_write_time && checkSumCounter == 1) {
-						paths_[file.path().string()].first = current_file_last_write_time;
+				else
+				{
+					if (paths_[file.path().string()] != current_file_last_write_time)
+					{
+						paths_[file.path().string()] = current_file_last_write_time;
 						action(file.path().string(), path_to_watch, FileStatus::modified, *s);
+					}
+					else
+					{
+						if (first_round)
+						{
+						paths_[file.path().string()] = current_file_last_write_time;
+						action(file.path().string(), path_to_watch, FileStatus::maybefied, *s);
+						}
 					}
 				}
 			}
-			checkSumCounter = 1;
+			first_round = false;
 		}
 	}
 	std::string get_folder_data()
@@ -112,7 +109,7 @@ public:
 
 
 private:
-	std::unordered_map<std::string, std::pair<std::time_t, int>> paths_;
+	std::unordered_map<std::string, std::time_t> paths_;
 	bool running_ = true;
 
 	// Check if "paths_" contains a given key
@@ -122,16 +119,16 @@ private:
 		return el != paths_.end();
 	}
 
-	int serialize_map(std::unordered_map<std::string, std::pair<std::time_t, int>>& mymap, std::string& str)
+	int serialize_map(std::unordered_map<std::string, std::time_t>& mymap, std::string& str)
 	{
-		for (std::unordered_map<std::string, std::pair<std::time_t, int>>::iterator it = mymap.begin(); it != mymap.end(); ++it)
+		for (std::unordered_map<std::string, std::time_t>::iterator it = mymap.begin(); it != mymap.end(); ++it)
 		{
-			str.append("./" + it->first.substr(path_to_watch.size()) + ":" + std::to_string(it->second.first) + "," + std::to_string(it->second.second) + "|");
+			str.append("./" + it->first.substr(path_to_watch.size()) + ":" + std::to_string(it->second) + "|");
 		}
 		return str.length();
 	}
 
-	int deserialize_map(std::unordered_map<std::string, std::pair<std::time_t, int>>& mymap, std::string& str)
+	int deserialize_map(std::unordered_map<std::string, std::time_t>& mymap, std::string& str)
 	{
 		std::string pair, token;
 		std::stringstream ss(str);
@@ -143,8 +140,7 @@ private:
 		while (std::getline(ss, pair, '|'))
 		{
 			pos = pair.find(":");
-			comma_pos = pair.find(",");
-			mymap.insert({ std::string(path_to_watch).append(std::string(pair, 0, pos).substr(2)), std::pair<std::time_t, int>(std::stoi(std::string(pair, pos + 1,comma_pos)),std::stoi(std::string(pair,comma_pos + 1))) });
+			mymap.insert({ std::string(path_to_watch).append(std::string(pair, 0, pos).substr(2)), std::stoi(std::string(pair, pos + 1)) }); 
 			i++;
 		}
 		return i;

@@ -2,3 +2,4 @@ enrico 25658
 pier 36185
 luciano 36185
 pipo_baudo 10743
+query 36185
