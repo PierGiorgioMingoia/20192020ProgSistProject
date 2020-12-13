@@ -60,14 +60,14 @@ bool checkNameAndPassword(std::string name, std::string password, const std::map
 		}
 		else
 		{
-			std::cout << " Tentativo di accesso di " << name << " con password errata" << std::endl;
+			std::cout << "Tentativo di accesso di " << name << " con password errata" << std::endl;
 			return false;
 
 		}
 	}
 	else
 	{
-		std::cout << " Profilo " << name << " non presente nel file accounts" << std::endl;
+		std::cout << "Profilo " << name << " non presente nel file accounts.txt" << std::endl;
 		return false;
 	}
 }

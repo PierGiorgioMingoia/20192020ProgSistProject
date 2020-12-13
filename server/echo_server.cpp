@@ -139,6 +139,7 @@ public:
 			std::string reply_str = "";
 			std::filesystem::path p;
 			bool cont = true;
+			std::string last_operation;
 
 			while (1)
 			{
@@ -172,6 +173,7 @@ public:
 							reply_str = std::string(reply_str, pos + 1);
 						else
 							reply_str = "";
+						last_operation = "creazione";
 					}
 					break;
 					case 'D':   //crea cartella vuota
@@ -190,6 +192,7 @@ public:
 							reply_str = std::string(reply_str, pos + 1);
 						else
 							reply_str = "";
+						last_operation = "CREATE";
 					}
 					break;
 					case 'M':   //modifica
@@ -214,6 +217,7 @@ public:
 							reply_str = std::string(reply_str, pos + 1);
 						else
 							reply_str = "";
+						last_operation = "MODIFY";
 					}
 					break;
 					case 'X':   //elimina
@@ -230,6 +234,7 @@ public:
 							reply_str = std::string(reply_str, pos + 1);
 						else
 							reply_str = "";
+						last_operation = "DELETE";
 					}
 					break;
 					case 'L':   //linea da inserire in append a un file
@@ -319,7 +324,7 @@ public:
 							reply_str = std::string(reply_str, pos + 1);
 						else
 							reply_str = "";
-						std::cout << "Operazione terminata su F" << file_name << std::endl;
+						std::cout << "Operazione " << last_operation<< " terminata su " << file_name << std::endl;
 					}
 					break;
 					case 'B':

@@ -278,7 +278,8 @@ void send(const char* msg, int size, tcp::socket& s)
     }
     catch (std::exception& e)
     {
-        std::cerr << "Exception in send: " << e.what() << "\n";                     // solo per debug
+        //std::cerr << "Errore in invio" << e.what() << "\n";                     // solo per debug
+        std::cerr << "Errore in invio\n";
         throw;
     }
 }
@@ -292,7 +293,8 @@ void send(std::string msg, tcp::socket& s)                                      
     }
     catch (std::exception& e)
     {
-        std::cerr << "Exception in send: " << e.what() << "\n";                     // solo per debug
+        //std::cerr << "Exception in send: " << e.what() << "\n";                     // solo per debug
+        std::cerr << "Errore in invio\n";
         throw;
     }
 }
@@ -339,7 +341,7 @@ void receive(tcp::socket* s, std::string* user, std::string* pw)                
                     lk.unlock();                                                    //
                                                                                     //
                     std::unique_lock<std::mutex> lk_out(cout_access);               // stampa per debug
-                    std::cout << "Reply is: ";                                      // stampa per debug
+                    std::cout << "Server ha terminato operazione su ";                                      // stampa per debug
                     std::cout << reply_str.substr(0, pos);                          // stampa per debug
                     std::cout << "\n";
 
@@ -416,8 +418,8 @@ void receive(tcp::socket* s, std::string* user, std::string* pw)                
         catch (std::exception& e)                                                   //
         {
             int first_to_report = 0;                                                         // 
-            std::cerr << "Exception in receive: " << e.what() << "\n";              // solo per debug
-
+            //std::cerr << "Exception in receive: " << e.what() << "\n";              // solo per debug
+            std::cerr << "Errore in ricezione\n";
             std::unique_lock<std::mutex> lk_re(flag_access);
             if (!REPORTED)
             {
@@ -497,7 +499,8 @@ void reconnect(tcp::socket* s, tcp::resolver::results_type* endpoints, std::stri
             }                                                                           //
             catch (std::exception& e)                                                   //
             {                                                                           //
-                std::cerr << "Exception in reconnect: " << e.what() << "\n";            // finchè non riesce a riconnettersi continua a mostrare il messaggio di errore
+                //std::cerr << "Exception in reconnect: " << e.what() << "\n";            // finchè non riesce a riconnettersi continua a mostrare il messaggio di errore
+                std::cerr << "Errore durante la riconnessione\n";
             }                                                                           //
                                                                                         //
         }                                                                               //
@@ -505,7 +508,8 @@ void reconnect(tcp::socket* s, tcp::resolver::results_type* endpoints, std::stri
     }
     catch (std::exception& e)
     {
-        std::cerr << "Exception in reconnect: " << e.what() << "\n";
+        //std::cerr << "Exception in reconnect: " << e.what() << "\n";
+        std::cerr << "Errore durante la riconnessione\n";
     }
 
 }                                                                                   //
@@ -542,7 +546,8 @@ void send_file(std::string path, tcp::socket& s)                                
     }
     catch (std::exception& e)
     {
-        std::cerr << "Exception in send file: " << e.what() << "\n";
+        //std::cerr << "Exception in send file: " << e.what() << "\n";
+        std::cerr << "Errore durante invio file\n";
         throw;
     }
 }
@@ -575,7 +580,7 @@ int login(tcp::socket& s, std::string& user, std::string& pw, bool first_time)
                 std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); //flush di cin
                 if (c != 'l' && c != 'r')                                                           // input errato ricomincia da capo
                 {
-                    std::cout << std::endl << "l -> login, r -> registrazione";
+                    std::cout << std::endl << "l -> login, r -> registrazione\n";
                     continue;
                 }
 
@@ -646,7 +651,7 @@ int login(tcp::socket& s, std::string& user, std::string& pw, bool first_time)
     }
     catch (std::exception& e)                                                   //
     {                                                                           //
-        std::cerr << "Exception in login: " << e.what() << "\n";
+        std::cerr << "Errore durante il login\n";
         throw;
     }
 }
@@ -667,7 +672,8 @@ std::string syncronize(tcp::socket& s)
     }
     catch (std::exception& e)                                                   //
     {                                                                           //
-        std::cerr << "Exception in syncronize: " << e.what() << "\n";
+        //std::cerr << "Exception in syncronize: " << e.what() << "\n";
+        std::cerr << "Errore durante la sincronizzazione\n";
         throw;
     }
 }
@@ -690,7 +696,7 @@ std::string backup_or_sync(tcp::socket& s,std::string user)
             std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); //flush di cin
             if (c != 's' && c != 'n')                                                           // input errato ricomincia da capo
             {
-                std::cout << std::endl << "s -> download, n -> continua senza download";
+                std::cout << std::endl << "s -> download, n -> continua senza download e sincronizza il server\n";
                 continue;
             }
             else
@@ -705,7 +711,7 @@ std::string backup_or_sync(tcp::socket& s,std::string user)
                 done = backup(s,user);
             data = "-";
             if (!done)
-                throw std::exception("impossibile ottenere copia di backup dal server");
+                throw std::exception("impossibile ottenere copia di backup dal server\n");
         }
         else
             data = syncronize(s);

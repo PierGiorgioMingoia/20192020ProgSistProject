@@ -26,7 +26,7 @@ int main(int argc, char* argv[]) {                                              
     }                                                                               //
     catch (std::exception& e)                                                       //
     {                                                                               //
-        std::cerr << "Exception general: " << e.what() << "\n";                     //
+        std::cerr << "Errore critico: chiusura client\n";                     //
         if (c != nullptr)
             delete c;
     }
