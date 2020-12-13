@@ -10,14 +10,14 @@ Creazione di una cartella per ciascun utente, solamente accedervi se il login vi
 - Come funziona la classe session?
 Metodi socket() e start(), proprietà socket, buffer, utente. Metodo start(), try/catch, while(!login) se errore login viene rimandato al client ad un messaggio e resta in attesa di un login, tutto ciò che serve a login/registrazione,  /while, che resta in attesa di tutti i messaggi del client della sessione.
 - Descrizione del protocollo
-RGS->Registrazione, I->Login, P->password, C->creazione del file (file,dataUltimaModifica), D-> creazione cartella vuota, M ->modifica (file), L->numero di byte messaggio L che va ad aggiungere ad un file(bytes), X -> elminare file(file), S -> richiesta sincronizzazzione (server chiede client), B -> richiesta backup (client chiede server), U->manda (data ultima modifca e chiusura file), F -> termine comando (file) controllo.
+RGS->Registrazione, I->Login, P->password, C->creazione del file (file,dataUltimaModifica), D-> creazione cartella vuota, M ->modifica (file), L->numero di byte messaggio L che va ad aggiungere ad un file(bytes), X -> elminare file(file), S -> richiesta sincronizzazzione (server chiede client), B -> richiesta backup (client chiede server), U->manda (data ultima modifca e chiusura file),P -> probe per verificare il checksum, F -> termine comando (file) controllo.
 Semplicità e comprensibile a noi nel momendo della progettazione.
 - Gestione della Disconnessione
 viene lanciata la catch della start(), chiudo file aperti, eseguo backup, rimuovo dagli account attivi.
 - Funzionamento FileWatcher
 Fa scansione nella sincronizzazzione, oggetto FileWatcher per la scansione e struttura dati e non serve più, client si occupa di trovare la differenza.
 - Checksum + dataUltimaModifica
-Data ultima modifica per distinguere se un file è stato modificato rispetto a quella salvata, ma per ulteriore controllo, checksum solo sula prima scansione. Ongi modifica client viene riportata sul server immediatamente.
+Data ultima modifica per distinguere se un file è stato modificato rispetto a quella salvata, ma per ulteriore controllo, checksum solo sulla prima scansione. Ogni modifica client viene riportata sul server immediatamente.
 - Autenticazione e gestione account loggati
 file contentete credenziali, mappa dove li conserviamo, lista account attivi, computeHashPassword() per non salvare in plain la password, funziona su tutti computer. Semirandom. Non fondamentale utilizzo database, semplicità 
 - Backup dati
@@ -29,7 +29,7 @@ Boost grande numero funzionalità ad esempio socket, portabitlità e gestione fi
 
 ## Client 
 - Selezione server backup
-C'è la possibilità a seconda dei argomenti passati la possibilità di selezionare un server di backup, indirizzo e porta, sfurttando i vari costruttori.
+C'è la possibilità a seconda dei argomenti passati la possibilità di selezionare un server di backup, indirizzo e porta, sfruttando i vari costruttori.
 - Connessione al servizio
 run(), boost per connettersi e poi ricconnettersi
 - Utilizzo dei thread (listener, reconnecter)
