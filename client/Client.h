@@ -465,7 +465,11 @@ void reconnect(tcp::socket* s, tcp::resolver::results_type* endpoints, std::stri
                 for (std::map<std::string, std::string>::iterator it = msg_buffer.begin(); it != msg_buffer.end(); it++)
                 {                                                                       // per tutti i comandi nel buffer
 
-                    msg.append(it->second[0] + ": " + it->first + '\n');
+                    //msg.append(it->second[0] + ": " + it->first + '\n');
+                    msg.append(it->second);
+                    msg.append(": ");
+                    msg.append(it->first);
+                    msg.append(std::string("\n"));
                     send(msg, *s);                                                      // li rimando
                     if (it->second[0] != 'Q')
                     {

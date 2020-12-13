@@ -5,3 +5,7 @@
 6)funzione di hash
 7)controllo account multipli
 8)
+
+
+
+chek msg server registration
