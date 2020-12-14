@@ -175,7 +175,7 @@ public:
 							reply_str = std::string(reply_str, pos + 1);
 						else
 							reply_str = "";
-						last_operation = "creazione";
+						last_operation = "CREATE";
 					}
 					break;
 					case 'D':   //crea cartella vuota
