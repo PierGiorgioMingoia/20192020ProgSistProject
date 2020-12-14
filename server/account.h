@@ -55,7 +55,6 @@ bool checkNameAndPassword(std::string name, std::string password, const std::map
 	if (it != accounts.end()) {
 
 		if (it->second == computeHashPassword(password)) {
-			std::cout << name << " ha eseguito l'accesso con successo" << std::endl;
 			return true;
 		}
 		else
@@ -102,8 +101,10 @@ bool registrationOfUser(std::string userAndPassword, std::map<std::string, int>&
 
 bool checkIfAlreadyLoggedIn(std::string user, std::vector<std::string>& activeAccounts) {
 	auto it = std::find(activeAccounts.begin(), activeAccounts.end(), user);
-	if (it != activeAccounts.end())
+	if (it != activeAccounts.end()) {
+		std::cout << "Tentativo di accesso di " << user << " che possiede ancora una sessione attiva" << std::endl;
 		return true;
+	}
 	else
 		return false;
 }

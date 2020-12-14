@@ -97,6 +97,8 @@ public:
 					std::string password = std::string(data_, reply_length - 1).substr(3);
 					std::unique_lock<std::mutex> lk_acc(account_access);                        //
 					if (checkNameAndPassword(user_, password, accountsMapNamePassword) && !checkIfAlreadyLoggedIn(user_, activeAccounts)) {	//se la pw è corretta
+						
+						std::cout << user_ << " ha eseguito l'accesso con successo" << std::endl;
 
 						if (std::filesystem::exists("./" + user_))
 						{
