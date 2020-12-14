@@ -1,0 +1,14 @@
+RGS -> registration
+I -> login
+C -> creazione file
+D -> creazione directory
+M -> modifica
+X -> eliminazione
+S -> sincronizzazione
+U -> data ultima modifica/ultimo messaggio
+F -> fine comandi relativi a un determinato file
+Q -> query per checksum su un file
+B -> backup intera cartella
+E- > errore
+R -> utente di ritorno(ha già una cartella)
+N -> nuovo utente
